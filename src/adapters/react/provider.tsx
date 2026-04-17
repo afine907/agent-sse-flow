@@ -4,12 +4,19 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { TraceScopeContext, type TraceScopeContextValue } from './context';
+import {
+  TraceScopeContext,
+  TraceScopeDataContext,
+  TraceScopeActionsContext,
+  type TraceScopeContextValue,
+  type TraceScopeDataValue,
+  type TraceScopeActionsValue,
+} from './context';
 import { SSEManager } from '../../core/sse';
 import { StateManager } from '../../core/state';
 import { TreeBuilder } from '../../core/tree';
 import { Renderer } from '../../core/renderer';
-import type { TraceScopeConfig, TraceScopeState, ConnectionState } from '../../types/config';
+import type { TraceScopeConfig, ConnectionState } from '../../types/config';
 import type { StreamNode, NodeMap } from '../../types/node';
 import type { TreeNode } from '../../types/tree';
 
@@ -33,7 +40,7 @@ export interface TraceScopeProviderProps {
    * TraceScope configuration
    */
   config: TraceScopeConfig;
-  
+
   /**
    * Child components
    */
@@ -80,7 +87,7 @@ export function TraceScopeProvider({ config, children }: TraceScopeProviderProps
     rendererRef.current = new Renderer(fullConfig.renderOptions);
 
     // Subscribe to renderer flush events
-    rendererRef.current.onFlush((events) => {
+    rendererRef.current.onFlush(() => {
       // Update tree on render events
       const currentNodes = stateManagerRef.current?.getAllNodes();
       if (currentNodes && treeBuilderRef.current) {
@@ -97,17 +104,17 @@ export function TraceScopeProvider({ config, children }: TraceScopeProviderProps
       onMessage: (message: any) => {
         // Handle message through state manager
         stateManagerRef.current?.handleMessage(message as any);
-        
+
         // Update React state
         const allNodes = stateManagerRef.current?.getAllNodes() || {};
         setNodes({ ...allNodes });
-        
+
         // Rebuild tree
         const newTree = treeBuilderRef.current?.buildTree(allNodes);
         setTree(newTree ?? null);
-        
+
         // Schedule render
-        const event = message.type === 'node_create' 
+        const event = message.type === 'node_create'
           ? { type: 'created' as const, nodeId: message.data.nodeId, node: message.data }
           : { type: 'updated' as const, nodeId: message.data.nodeId, node: message.data };
         rendererRef.current?.scheduleRender(event);
@@ -182,13 +189,20 @@ export function TraceScopeProvider({ config, children }: TraceScopeProviderProps
     });
   }, []);
 
-  // Context value
-  const contextValue: TraceScopeContextValue = useMemo(
+  // Data context value (changes frequently with nodes, tree, connectionState, error)
+  const dataValue: TraceScopeDataValue = useMemo(
     () => ({
       nodes,
       tree,
       connectionState,
       error,
+    }),
+    [nodes, tree, connectionState, error]
+  );
+
+  // Actions context value (stable references - only changes when config changes)
+  const actionsValue: TraceScopeActionsValue = useMemo(
+    () => ({
       connect,
       disconnect,
       reconnect,
@@ -197,24 +211,25 @@ export function TraceScopeProvider({ config, children }: TraceScopeProviderProps
       toggleExpanded,
       config: fullConfig,
     }),
-    [
-      nodes,
-      tree,
-      connectionState,
-      error,
-      connect,
-      disconnect,
-      reconnect,
-      reset,
-      getNode,
-      toggleExpanded,
-      fullConfig,
-    ]
+    [connect, disconnect, reconnect, reset, getNode, toggleExpanded, fullConfig]
+  );
+
+  // Legacy context value (for backward compatibility)
+  const contextValue: TraceScopeContextValue = useMemo(
+    () => ({
+      ...dataValue,
+      ...actionsValue,
+    }),
+    [dataValue, actionsValue]
   );
 
   return (
-    <TraceScopeContext.Provider value={contextValue}>
-      {children}
-    </TraceScopeContext.Provider>
+    <TraceScopeActionsContext.Provider value={actionsValue}>
+      <TraceScopeDataContext.Provider value={dataValue}>
+        <TraceScopeContext.Provider value={contextValue}>
+          {children}
+        </TraceScopeContext.Provider>
+      </TraceScopeDataContext.Provider>
+    </TraceScopeActionsContext.Provider>
   );
 }

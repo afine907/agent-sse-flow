@@ -10,6 +10,30 @@ import { TraceTree } from './TraceTree';
 import { Toolbar } from './Toolbar';
 import './TraceScopeView.css';
 
+/* ============================================================================
+ * Static Components
+ * ============================================================================ */
+
+/**
+ * Error display component
+ */
+const ErrorDisplay = ({ message }: { message: string }) => (
+  <div className="tracescope-error">
+    <span className="tracescope-error-icon">⚠️</span>
+    <span className="tracescope-error-message">{message}</span>
+  </div>
+);
+
+/**
+ * Empty state component
+ */
+const EmptyState = () => (
+  <div className="tracescope-empty">
+    <div className="tracescope-empty-icon">📭</div>
+    <div className="tracescope-empty-text">Waiting for trace data...</div>
+  </div>
+);
+
 export interface TraceScopeViewProps {
   /**
    * Show connection status indicator
@@ -62,25 +86,15 @@ export function TraceScopeView({
       </div>
       
       {/* Error display */}
-      {error && (
-        <div className="tracescope-error">
-          <span className="tracescope-error-icon">⚠️</span>
-          <span className="tracescope-error-message">{error.message}</span>
-        </div>
-      )}
-      
+      {error && <ErrorDisplay message={error.message} />}
+
       {/* Main trace tree */}
       <div className="tracescope-content">
         <TraceTree />
       </div>
-      
+
       {/* Empty state */}
-      {nodeCount === 0 && !error && connectionState === 'connected' && (
-        <div className="tracescope-empty">
-          <div className="tracescope-empty-icon">📭</div>
-          <div className="tracescope-empty-text">Waiting for trace data...</div>
-        </div>
-      )}
+      {nodeCount === 0 && !error && connectionState === 'connected' && <EmptyState />}
     </div>
   );
 }

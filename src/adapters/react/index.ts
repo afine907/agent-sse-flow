@@ -1,13 +1,20 @@
 /**
  * react-tracescope - React Adapter
  * High-performance trace visualization for AI agents
- * 
+ *
  * @package @tracescope/react
  * @version 1.0.0
  */
 
 // Context
-export { TraceScopeContext, useTraceScopeContext } from './context';
+export {
+  TraceScopeContext,
+  TraceScopeDataContext,
+  TraceScopeActionsContext,
+  useTraceScopeContext,
+  useTraceScopeData,
+  useTraceScopeActions,
+} from './context';
 
 // Provider
 export { TraceScopeProvider } from './provider';
@@ -36,7 +43,11 @@ export { StatusIndicator } from '../../components/StatusIndicator';
 export { VirtualTree, VirtualTreeWithSearch } from '../../components/VirtualTree';
 
 // Types
-export type { TraceScopeContextValue } from './context';
+export type {
+  TraceScopeContextValue,
+  TraceScopeDataValue,
+  TraceScopeActionsValue,
+} from './context';
 export type { TraceScopeProviderProps } from './provider';
 export type { TraceScopeConfig, TraceScopeState, ConnectionState } from '../../types/config';
 export type { VTreeProps, VTreeSearchProps } from '../../components/VirtualTree';

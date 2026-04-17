@@ -9,13 +9,15 @@
  * - 代码高亮
  */
 
-import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { marked } from 'marked';
-import hljs from 'highlight.js';
 
 // 类型导入
 import type { ProtocolMessageData, ProtocolMessageRole, ProtocolContentType } from '../protocol/types';
+
+// 动态导入类型定义
+type MarkedModule = typeof import('marked');
+type HljsModule = typeof import('highlight.js');
 
 // 配置类型
 export interface VirtualChatConfig {
@@ -78,37 +80,46 @@ const MessageBubble: React.FC<MessageBubbleProps> = memo(({
   avatar,
 }) => {
   const contentRef = useRef<HTMLDivElement>(null);
-  const [isTypingComplete, setIsTypingComplete] = useState(!message.isStreaming);
-  
-  // 流式输出动画
+
+  // 动态导入 marked (hljs 暂未使用，预留接口)
+  const [marked, setMarked] = useState<MarkedModule | null>(null);
+
   useEffect(() => {
-    if (message.isStreaming) {
-      setIsTypingComplete(false);
-    } else {
-      setIsTypingComplete(true);
-    }
-  }, [message.isStreaming]);
-  
+    Promise.all([
+      import('marked'),
+      import('highlight.js')
+    ]).then(([markedMod]) => {
+      setMarked(markedMod);
+    }).catch((err) => {
+      console.warn('[VirtualChat] Failed to load markdown libraries:', err);
+    });
+  }, []);
+
   // 渲染 Markdown / 代码
   const renderContent = useCallback((content: string, contentType: ProtocolContentType) => {
+    // marked 未加载时显示纯文本
+    if (!marked) {
+      return <div className="text-content">{content}</div>;
+    }
+
     if (contentType === 'code') {
       return (
         <pre><code className="hljs language-javascript">{content}</code></pre>
       );
     }
-    
+
     if (contentType === 'markdown') {
       try {
-        const html = marked.parse(content, { async: false }) as string;
+        const html = marked.marked(content, { async: false }) as string;
         return <div className="markdown-content" dangerouslySetInnerHTML={{ __html: html }} />;
       } catch {
         return <div className="text-content">{content}</div>;
       }
     }
-    
+
     // 默认纯文本
     return <div className="text-content">{content}</div>;
-  }, []);
+  }, [marked]);
   
   // 提取思考过程 (assistant 消息中以 <thinking> 包裹的内容)
   const extractThinking = useCallback((content: string): { thinking: string; content: string } | null => {
@@ -139,10 +150,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = memo(({
     tool: '工具',
   }[role] || role;
   
-  // 格式化时间
+  // 格式化时间 - 使用 Intl.DateTimeFormat 以获得一致的本地化
+  const timeFormatter = useMemo(
+    () => new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+    []
+  );
   const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    return timeFormatter.format(new Date(timestamp));
   };
   
   // Token 统计
@@ -155,7 +169,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = memo(({
       {/* 头像 */}
       {avatar && (
         <div className="message-avatar">
-          <img src={avatar} alt={roleName} />
+          <img src={avatar} alt={`${roleName} avatar`} />
         </div>
       )}
       
@@ -185,7 +199,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = memo(({
           
           {/* 流式输出光标 */}
           {message.isStreaming && (
-            <span className="typing-cursor">▊</span>
+            <span className="typing-cursor" aria-hidden="true">▊</span>
           )}
         </div>
         
@@ -259,11 +273,13 @@ const InputBox: React.FC<InputBoxProps> = memo(({
         placeholder={placeholder}
         disabled={disabled}
         rows={1}
+        aria-label="Message input"
       />
-      <button 
+      <button
         className="send-button"
         onClick={handleSend}
         disabled={disabled || !input.trim()}
+        aria-label="Send message"
       >
         发送
       </button>
@@ -280,23 +296,33 @@ InputBox.displayName = 'InputBox';
 interface VirtualChatProps {
   /** 消息列表 */
   messages: ProtocolMessageData[];
-  
+
   /** 配置 */
   config?: VirtualChatConfig;
-  
+
   /** 样式类名 */
   className?: string;
-  
+
   /** 高度 */
   height?: number | string;
 }
 
+// 在组件外部定义默认配置，避免每次渲染创建新对象
+const DEFAULT_CHAT_CONFIG: VirtualChatConfig = {
+  showThinking: true,
+  showTokenUsage: true,
+  showTimestamp: true,
+  maxMessages: 100,
+  avatars: {},
+};
+
 export const VirtualChat: React.FC<VirtualChatProps> = memo(({
   messages,
-  config = {},
+  config,
   className = '',
   height = 600,
 }) => {
+  const mergedConfig = { ...DEFAULT_CHAT_CONFIG, ...config };
   const {
     showThinking = true,
     showTokenUsage = true,
@@ -304,8 +330,10 @@ export const VirtualChat: React.FC<VirtualChatProps> = memo(({
     maxMessages = 100,
     avatars = {},
     onSendMessage,
-    onMessageRendered,
-  } = config;
+    // onMessageRendered is reserved for future use
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    onMessageRendered: _onMessageRendered,
+  } = mergedConfig;
   
   // 限制消息数量
   const displayMessages = messages.slice(-maxMessages);
@@ -372,13 +400,16 @@ export const VirtualChat: React.FC<VirtualChatProps> = memo(({
       style={{ height }}
     >
       {/* 消息列表 */}
-      <div 
+      <div
         ref={parentRef}
         className="chat-messages"
         style={{
           height: `${virtualizer.getTotalSize()}px`,
           position: 'relative',
         }}
+        role="log"
+        aria-label="Chat messages"
+        aria-live="polite"
       >
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const message = displayMessages[virtualRow.index];
@@ -444,7 +475,7 @@ interface StreamingChatProps {
 export const StreamingChat: React.FC<StreamingChatProps> = memo(({
   url,
   adapter = 'custom',
-  config = {},
+  config,
   height = 600,
 }) => {
   const [messages, setMessages] = useState<ProtocolMessageData[]>([]);

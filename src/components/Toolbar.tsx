@@ -79,23 +79,25 @@ export function Toolbar({ className = '', showFilters = true }: ToolbarProps): J
       {/* Search input */}
       {showFilters && (
         <div className="toolbar-search">
-          <span className="search-icon">🔍</span>
+          <span className="search-icon" aria-hidden="true">🔍</span>
           <input
             type="text"
             className="search-input"
             placeholder="Search nodes..."
             value={searchQuery}
             onChange={handleSearchChange}
+            aria-label="Search nodes"
           />
         </div>
       )}
-      
+
       {/* Type filter */}
       {showFilters && (
         <select
           className="toolbar-select"
           value={filterType}
           onChange={handleTypeChange}
+          aria-label="Filter by node type"
         >
           {NODE_TYPE_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -104,13 +106,14 @@ export function Toolbar({ className = '', showFilters = true }: ToolbarProps): J
           ))}
         </select>
       )}
-      
+
       {/* Status filter */}
       {showFilters && (
         <select
           className="toolbar-select"
           value={filterStatus}
           onChange={handleStatusChange}
+          aria-label="Filter by status"
         >
           <option value="">All Status</option>
           <option value="streaming">Streaming</option>
@@ -131,7 +134,7 @@ export function Toolbar({ className = '', showFilters = true }: ToolbarProps): J
         <button
           className="toolbar-btn toolbar-btn-small"
           onClick={handleClearFilters}
-          title="Clear filters"
+          aria-label="Clear all filters"
         >
           ✕
         </button>
@@ -140,28 +143,28 @@ export function Toolbar({ className = '', showFilters = true }: ToolbarProps): J
       {/* Connection control buttons */}
       <div className="toolbar-divider" />
       
-      <button 
+      <button
         className="toolbar-btn"
         onClick={reconnect}
-        title="Reconnect"
+        aria-label="Reconnect to server"
       >
-        <span className="btn-icon">🔄</span>
+        <span className="btn-icon" aria-hidden="true">🔄</span>
       </button>
-      
-      <button 
+
+      <button
         className="toolbar-btn"
         onClick={disconnect}
-        title="Disconnect"
+        aria-label="Disconnect from server"
       >
-        <span className="btn-icon">⏹️</span>
+        <span className="btn-icon" aria-hidden="true">⏹️</span>
       </button>
-      
-      <button 
+
+      <button
         className="toolbar-btn toolbar-btn-danger"
         onClick={reset}
-        title="Clear and Reset"
+        aria-label="Clear all data and reset"
       >
-        <span className="btn-icon">🗑️</span>
+        <span className="btn-icon" aria-hidden="true">🗑️</span>
       </button>
     </div>
   );

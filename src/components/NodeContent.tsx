@@ -4,27 +4,14 @@
  * Supports code highlighting and markdown rendering
  */
 
-import React, { useMemo, useEffect, useRef } from 'react';
-import { marked } from 'marked';
-import hljs from 'highlight.js';
+import React, { useMemo, useEffect, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import type { NodeStatus } from '../types/node';
 import './NodeContent.css';
 
-// Configure marked for security
-marked.setOptions({
-  gfm: true,
-  breaks: true,
-});
-
-// Configure DOMPurify to allow safe HTML tags
-DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-  // Open links in new tab
-  if (node.tagName === 'A') {
-    node.setAttribute('target', '_blank');
-    node.setAttribute('rel', 'noopener noreferrer');
-  }
-});
+// 动态导入类型定义
+type MarkedModule = typeof import('marked');
+type HljsModule = typeof import('highlight.js');
 
 export interface NodeContentProps {
   /**
@@ -73,51 +60,87 @@ export function NodeContent({
   enableHighlight = true,
 }: NodeContentProps): JSX.Element {
   const codeRef = useRef<HTMLElement>(null);
-  
+
+  // 动态导入 marked 和 hljs
+  const [marked, setMarked] = useState<MarkedModule | null>(null);
+  const [hljs, setHljs] = useState<HljsModule | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      import('marked'),
+      import('highlight.js')
+    ]).then(([markedMod, hljsMod]) => {
+      // Configure marked for security
+      markedMod.marked.setOptions({
+        gfm: true,
+        breaks: true,
+      });
+      setMarked(markedMod);
+      setHljs(hljsMod);
+    });
+  }, []);
+
+  // Configure DOMPurify to allow safe HTML tags
+  useEffect(() => {
+    // Add hook for link safety
+    DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+      // Open links in new tab
+      if (node.tagName === 'A') {
+        node.setAttribute('target', '_blank');
+        node.setAttribute('rel', 'noopener noreferrer');
+      }
+    });
+
+    // Cleanup hook on unmount to prevent duplicate registrations
+    return () => {
+      DOMPurify.removeHook('afterSanitizeAttributes');
+    };
+  }, []);
+
   // Determine if content is streaming
   const isStreaming = status === 'streaming';
-  
+
   // Determine if there's content
   const hasContent = content && content.length > 0;
-  
+
   // Format content based on node type and content
   const formattedContent = useMemo(() => {
     if (!hasContent) return null;
-    
+
     // Check if content is code
-    const isCode = nodeType === 'code_execution' || 
+    const isCode = nodeType === 'code_execution' ||
                    nodeType === 'tool_call' ||
                    /^(import|export|const|let|var|function|class|def|public|private|interface|type|enum)/m.test(content);
-    
+
     // Check if content looks like markdown
     const isMarkdown = enableMarkdown && (
-      content.includes('#') || 
-      content.includes('```') || 
+      content.includes('#') ||
+      content.includes('```') ||
       content.includes('**') ||
       content.includes('[]') ||
       content.includes('```')
     );
-    
+
     return {
       text: content,
       isCode,
       isMarkdown: isMarkdown && !isCode,
     };
   }, [content, hasContent, nodeType, enableMarkdown]);
-  
+
   // Apply syntax highlighting
   useEffect(() => {
-    if (codeRef.current && formattedContent?.isCode && enableHighlight) {
-      hljs.highlightElement(codeRef.current);
+    if (codeRef.current && formattedContent?.isCode && enableHighlight && hljs) {
+      hljs.default.highlightElement(codeRef.current);
     }
-  }, [content, formattedContent?.isCode, enableHighlight]);
-  
+  }, [content, formattedContent?.isCode, enableHighlight, hljs]);
+
   // Render markdown with XSS protection
   const renderedMarkdown = useMemo(() => {
-    if (formattedContent?.isMarkdown && enableMarkdown) {
+    if (formattedContent?.isMarkdown && enableMarkdown && marked) {
       try {
         // First render markdown
-        const rawHtml = marked(content) as string;
+        const rawHtml = marked.marked(content) as string;
         // Then sanitize to prevent XSS
         return DOMPurify.sanitize(rawHtml, {
           ALLOWED_TAGS: [
@@ -139,7 +162,7 @@ export function NodeContent({
       }
     }
     return null;
-  }, [content, formattedContent?.isMarkdown, enableMarkdown]);
+  }, [content, formattedContent?.isMarkdown, enableMarkdown, marked]);
   
   return (
     <div className={`node-content ${className}`}>

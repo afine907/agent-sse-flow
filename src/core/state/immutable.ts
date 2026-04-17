@@ -182,9 +182,16 @@ export function getNodesSortedByTime(
 
 /**
  * Deep clone a node (for external consumption)
+ * Uses structuredClone for better performance than JSON.parse/stringify
  * @param node - Node to clone
  * @returns Deep clone of the node
  */
 export function deepCloneNode(node: StreamNode): StreamNode {
+  // structuredClone is available in modern environments (Node 17+, modern browsers)
+  // Falls back to JSON method for older environments
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (typeof globalThis.structuredClone === 'function') {
+    return globalThis.structuredClone(node);
+  }
   return JSON.parse(JSON.stringify(node));
 }
