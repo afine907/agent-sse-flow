@@ -63,6 +63,44 @@ function App() {
 
 For detailed adapter usage, see [ADAPTERS.md](./docs/ADAPTERS.md).
 
+### Examples - Ready-to-Use Demo Data
+
+TraceScope provides built-in example data for each framework:
+
+```tsx
+import { TraceScopeProvider, TraceTree } from 'react-tracescope';
+import { langchainAgentTrace, langchainAgentEvents } from 'react-tracescope';
+
+// Use with adapter (for real-time SSE stream)
+function App1() {
+  return (
+    <TraceScopeProvider config={{ adapter: 'langchain' }}>
+      <TraceTree />
+    </TraceScopeProvider>
+  );
+}
+
+// Use with demo data (static)
+function App2() {
+  return (
+    <TraceScopeProvider
+      config={{ adapter: 'custom', autoConnect: false }}
+      initialEvents={langchainAgentEvents}
+    >
+      <TraceTree />
+    </TraceScopeProvider>
+  );
+}
+```
+
+**Available Examples:**
+
+| Framework | Import | Description |
+|-----------|--------|-------------|
+| LangChain | `langchainAgentTrace` | Full Agent flow with LLM + Tool |
+| AutoGen | `autogenMultiAgentTrace` | Multi-agent collaboration |
+| Dify | `difyCustomerServiceWorkflow` | Customer service workflow |
+
 ### Installation
 
 ```bash

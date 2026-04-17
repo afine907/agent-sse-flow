@@ -17,6 +17,9 @@ export * from './protocol';
 // Components
 export * from './components';
 
+// Examples - 开箱即用的框架示例数据
+export * from './examples/frameworks';
+
 // React adapter (optional - only if React is available)
 try {
   require.resolve('react');

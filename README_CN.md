@@ -63,6 +63,44 @@ function App() {
 
 详细适配器用法见 [ADAPTERS.md](./docs/ADAPTERS.md)。
 
+### 示例 - 开箱即用的 Demo 数据
+
+TraceScope 为每个框架提供了内置示例数据：
+
+```tsx
+import { TraceScopeProvider, TraceTree } from 'react-tracescope';
+import { langchainAgentTrace, langchainAgentEvents } from 'react-tracescope';
+
+// 方式1: 使用适配器 (实时 SSE 流)
+function App1() {
+  return (
+    <TraceScopeProvider config={{ adapter: 'langchain' }}>
+      <TraceTree />
+    </TraceScopeProvider>
+  );
+}
+
+// 方式2: 使用示例数据 (静态)
+function App2() {
+  return (
+    <TraceScopeProvider
+      config={{ adapter: 'custom', autoConnect: false }}
+      initialEvents={langchainAgentEvents}
+    >
+      <TraceTree />
+    </TraceScopeProvider>
+  );
+}
+```
+
+**可用示例：**
+
+| 框架 | 导入 | 说明 |
+|------|------|------|
+| LangChain | `langchainAgentTrace` | 完整 Agent 流程 (LLM + 工具) |
+| AutoGen | `autogenMultiAgentTrace` | 多 Agent 协作 |
+| Dify | `difyCustomerServiceWorkflow` | 客服工作流 |
+
 ### 安装
 
 ```bash
