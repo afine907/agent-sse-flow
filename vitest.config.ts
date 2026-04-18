@@ -47,6 +47,8 @@ export default defineConfig({
         'src/**/*.d.ts',
         'src/index.ts',
         'src/**/index.ts',
+        // Pure type definition files (no runtime code)
+        'src/types/**',
         // Examples and demos (not part of library)
         'src/examples/**',
         'src/integrations/**/examples/**',
