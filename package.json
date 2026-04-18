@@ -1,6 +1,7 @@
 {
   "name": "react-tracescope",
   "version": "1.0.0",
+  "packageManager": "pnpm@10.8.1",
   "description": "High-performance React component for visualizing AI agent execution traces with SSE streaming. Supports 5000+ nodes with virtual scrolling.",
   "main": "dist/tracescope.cjs.js",
   "module": "dist/tracescope.es.js",
@@ -32,6 +33,7 @@
     "dist"
   ],
   "scripts": {
+    "preinstall": "node -e \"if(!/pnpm/.test(process.env.npm_execpath||'')){console.error('Use pnpm instead of npm/yarn');process.exit(1)}\"",
     "dev": "vite",
     "dev:demo": "vite --config vite.demo.config.ts",
     "build": "tsc && vite build",
