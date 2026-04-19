@@ -1,9 +1,14 @@
-/* TraceScope Main Styles */
+/* TraceScope Main Styles - Demo Entry */
 
+/* Import Tailwind with full utilities (not reference) */
+@import "tailwindcss";
+
+/* Import theme variables and custom components */
+@import './theme.css';
+@config '../../tailwind.config.js';
 @import './tailwind.css';
-@import './animations.css';
 
-/* 全局样式 */
+/* Global styles - fallbacks for demo */
 :root {
   --ts-primary: #667eea;
   --ts-primary-dark: #764ba2;

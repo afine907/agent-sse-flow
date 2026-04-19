@@ -1,9 +1,8 @@
 /* TraceScope Tailwind CSS Entry */
 
 @import './theme.css';
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@config '../../tailwind.config.js';
+@import "tailwindcss" reference;
 
 /* Base layer - Custom properties and reset */
 @layer base {
@@ -53,11 +52,6 @@
     @apply animate-pulse-subtle;
   }
 
-  @keyframes pulse-subtle {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.9; }
-  }
-
   /* ===== Content Area ===== */
   .ts-content {
     @apply text-sm;
@@ -73,7 +67,7 @@
   }
 
   .ts-content-code code {
-    @apply font-inherit text-[#d4d4d4];
+    @apply text-[#d4d4d4];
   }
 
   .ts-content-markdown {
@@ -185,7 +179,7 @@
   .ts-chat-markdown pre { @apply bg-[#282c34] text-[#abb2bf] p-3 rounded-lg overflow-x-auto my-2; }
   .ts-chat-markdown pre code { @apply bg-transparent p-0; }
   .ts-chat-markdown ul, .ts-chat-markdown ol { @apply pl-5 my-2; }
-  .ts-chat-markdown blockquote { @apply border-l-3 border-ts-border pl-3 text-ts-muted-foreground my-2; }
+  .ts-chat-markdown blockquote { @apply border-l-[3px] border-ts-border pl-3 text-ts-muted-foreground my-2; }
 
   .ts-chat-bubble-user {
     @apply bg-ts-primary text-white rounded-[18px_18px_4px_18px] px-4 py-3 leading-relaxed break-words whitespace-pre-wrap;
@@ -200,7 +194,8 @@
   }
 
   .ts-chat-input {
-    @apply flex-1 p-3 px-4 border border-ts-border rounded-[20px] resize-none font-inherit text-sm leading-relaxed max-h-[150px] overflow-y-auto outline-none transition-colors duration-200 focus:border-ts-primary;
+    @apply flex-1 p-3 px-4 border border-ts-border rounded-[20px] resize-none text-sm leading-relaxed max-h-[150px] overflow-y-auto outline-none transition-colors duration-200 focus:border-ts-primary;
+    font-family: inherit;
   }
 
   .ts-chat-send-btn {

@@ -1,5 +1,8 @@
 /* TraceScope Demo Styles */
 
+@import './tailwind.css';
+@import "tailwindcss";
+
 /* Base reset */
 * {
   @apply box-border m-0 p-0;

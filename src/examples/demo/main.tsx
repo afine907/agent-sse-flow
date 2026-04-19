@@ -7,8 +7,9 @@ import ReactDOM from 'react-dom/client';
 import DemoApp from './DemoApp';
 
 // 样式
+import '../../styles/main.css';
 import '../../styles/demo.css';
-import '../../styles/index.css';
+import '../../styles/theme.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root')!);
 

@@ -7,9 +7,8 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { TraceScopeProvider, useTraceTree } from '../../adapters/react';
 import { VirtualTreeWithSearch, ErrorBoundary } from '../../components';
-import '../../styles/index.css';
-import '../../styles/node-themes.css';
-import '../../styles/animations.css';
+import '../../styles/main.css';
+import '../../styles/theme.css';
 
 /**
  * Example configuration - 5000 nodes for stress testing
