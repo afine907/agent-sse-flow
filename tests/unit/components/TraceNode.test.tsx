@@ -11,10 +11,11 @@ import type { StreamNode } from '@tracescope/types/node';
 
 // Mock hooks
 const mockToggle = vi.fn();
+const mockIsExpanded = vi.fn(() => true);
 
 vi.mock('@tracescope/adapters/react/hooks', () => ({
   useNodeExpanded: vi.fn(() => ({
-    isExpanded: true,
+    isExpanded: mockIsExpanded(),
     toggle: mockToggle,
   })),
 }));
@@ -137,13 +138,8 @@ describe('TraceNode', () => {
     });
 
     it('should not render children when collapsed', () => {
-      // Override mock for this test
-      vi.mock('@tracescope/adapters/react/hooks', () => ({
-        useNodeExpanded: vi.fn(() => ({
-          isExpanded: false,
-          toggle: mockToggle,
-        })),
-      }));
+      // Set mock to return collapsed state
+      mockIsExpanded.mockReturnValue(false);
 
       const node = createNode({
         children: [
@@ -161,6 +157,9 @@ describe('TraceNode', () => {
 
       // Only parent node should be rendered
       expect(screen.getByRole('treeitem')).toBeInTheDocument();
+      
+      // Reset mock
+      mockIsExpanded.mockReturnValue(true);
     });
   });
 
