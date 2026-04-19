@@ -13,7 +13,13 @@ export type NodeType =
   | 'tool_call'           // Tool/API call request
   | 'code_execution'      // Generated code/script
   | 'execution_result'    // Tool/code execution result
-  | 'final_output';       // Final response to user
+  | 'final_output'        // Final response to user
+  | 'error';              // Error state
+
+/**
+ * Node type name for type-safe component props
+ */
+export type NodeTypeName = NodeType;
 
 /**
  * Node execution status

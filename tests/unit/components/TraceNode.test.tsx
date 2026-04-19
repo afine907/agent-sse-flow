@@ -102,7 +102,7 @@ describe('TraceNode', () => {
       render(<TraceNode node={node} depth={3} />);
 
       const nodeElement = screen.getByRole('treeitem');
-      expect(nodeElement.style.paddingLeft).toBe('96px'); // 3 * 32
+      expect(nodeElement.style.paddingLeft).toBe('72px'); // 3 * 24
     });
 
     it('should apply zero padding for depth 0', () => {
@@ -207,7 +207,7 @@ describe('TraceNode', () => {
 
   describe('node type classes', () => {
     const testCases = [
-      { nodeType: 'user_input', expectedClass: 'ts-node-user-input' },
+      { nodeType: 'user_input', expectedClass: 'ts-node-user' },
       { nodeType: 'assistant_thought', expectedClass: 'ts-node-thought' },
       { nodeType: 'tool_call', expectedClass: 'ts-node-tool' },
       { nodeType: 'code_execution', expectedClass: 'ts-node-code' },

@@ -1,0 +1,171 @@
+/**
+ * TraceScope Theme System
+ * 基于 Oklch 色彩空间，借鉴 AgentPrism 设计语言
+ */
+
+:root {
+  /* ===== Light Mode ===== */
+  @media (prefers-color-scheme: light) {
+    /* === 通用颜色 === */
+    --ts-background: 1 0 0; /* white */
+    --ts-foreground: 21% 0.034 264.665; /* gray.900 */
+    --ts-primary: 58.5% 0.233 277.117; /* indigo.500 */
+    --ts-primary-foreground: 1 0 0; /* white */
+    
+    --ts-muted: 98.5% 0.002 247.839; /* gray.50 */
+    --ts-muted-foreground: 44.6% 0.03 256.802; /* gray.600 */
+    
+    --ts-border: 92.8% 0.006 264.531; /* gray.200 */
+    --ts-border-subtle: 96.7% 0.003 264.542; /* gray.100 */
+
+    /* === 状态颜色 === */
+    --ts-success: 69.6% 0.17 162.48; /* emerald.500 */
+    --ts-success-muted: 97.9% 0.021 166.113; /* emerald.50 */
+    --ts-success-muted-foreground: 50.8% 0.118 165.612; /* emerald.700 */
+
+    --ts-error: 63.7% 0.237 25.331; /* red.500 */
+    --ts-error-muted: 97.1% 0.013 17.38; /* red.50 */
+    --ts-error-muted-foreground: 57.7% 0.245 27.325; /* red.600 */
+
+    --ts-warning: 79.5% 0.184 86.047; /* yellow.500 */
+    --ts-warning-muted: 98.7% 0.026 102.212; /* yellow.50 */
+    --ts-warning-muted-foreground: 55.4% 0.135 66.442; /* yellow.700 */
+
+    --ts-streaming: 60.6% 0.25 292.717; /* violet.500 */
+    --ts-streaming-muted: 94.3% 0.029 294.588; /* violet.100 */
+    --ts-streaming-muted-foreground: 54.1% 0.281 293.009; /* violet.600 */
+
+    /* === 节点类型颜色 === */
+    
+    /* User Input - indigo */
+    --ts-node-user: 58.5% 0.233 277.117; /* indigo.500 */
+    --ts-badge-user: 96.2% 0.018 272.314; /* indigo.50 */
+    --ts-badge-user-foreground: 58.5% 0.233 277.117; /* indigo.500 */
+    --ts-timeline-user: 67.3% 0.182 276.935; /* indigo.400 */
+
+    /* Assistant Thought (LLM) - purple */
+    --ts-node-thought: 62.7% 0.265 303.9; /* purple.500 */
+    --ts-badge-thought: 97.7% 0.014 308.299; /* purple.50 */
+    --ts-badge-thought-foreground: 62.7% 0.265 303.9; /* purple.500 */
+    --ts-timeline-thought: 71.4% 0.203 305.504; /* purple.400 */
+
+    /* Tool Call - orange */
+    --ts-node-tool: 70.5% 0.213 47.604; /* orange.500 */
+    --ts-badge-tool: 98% 0.016 73.684; /* orange.50 */
+    --ts-badge-tool-foreground: 70.5% 0.213 47.604; /* orange.500 */
+    --ts-timeline-tool: 75% 0.183 55.934; /* orange.400 */
+
+    /* Code Execution - cyan */
+    --ts-node-code: 71.5% 0.143 215.221; /* cyan.500 */
+    --ts-badge-code: 98.4% 0.019 200.873; /* cyan.50 */
+    --ts-badge-code-foreground: 71.5% 0.143 215.221; /* cyan.500 */
+    --ts-timeline-code: 78.9% 0.154 211.53; /* cyan.400 */
+
+    /* Execution Result - emerald */
+    --ts-node-result: 69.6% 0.17 162.48; /* emerald.500 */
+    --ts-badge-result: 97.9% 0.021 166.113; /* emerald.50 */
+    --ts-badge-result-foreground: 69.6% 0.17 162.48; /* emerald.500 */
+    --ts-timeline-result: 76.5% 0.177 163.223; /* emerald.400 */
+
+    /* Final Output - sky */
+    --ts-node-output: 68.5% 0.169 237.323; /* sky.500 */
+    --ts-badge-output: 97.7% 0.013 236.62; /* sky.50 */
+    --ts-badge-output-foreground: 68.5% 0.169 237.323; /* sky.500 */
+    --ts-timeline-output: 74.6% 0.16 232.661; /* sky.400 */
+
+    /* Error - red */
+    --ts-node-error: 63.7% 0.237 25.331; /* red.500 */
+    --ts-badge-error: 97.1% 0.013 17.38; /* red.50 */
+    --ts-badge-error-foreground: 63.7% 0.237 25.331; /* red.500 */
+    --ts-timeline-error: 70.4% 0.191 22.216; /* red.400 */
+  }
+
+  /* ===== Dark Mode ===== */
+  @media (prefers-color-scheme: dark) {
+    /* === 通用颜色 === */
+    --ts-background: 13% 0.028 261.692; /* gray.950 */
+    --ts-foreground: 96.7% 0.003 264.542; /* gray.100 */
+    --ts-primary: 78.5% 0.115 274.713; /* indigo.300 */
+    --ts-primary-foreground: 13% 0.028 261.692; /* gray.950 */
+    
+    --ts-muted: 21% 0.034 264.665; /* gray.900 */
+    --ts-muted-foreground: 70.7% 0.022 261.325; /* gray.400 */
+    
+    --ts-border: 44.6% 0.03 256.802; /* gray.600 */
+    --ts-border-subtle: 37.3% 0.034 259.733; /* gray.700 */
+
+    /* === 状态颜色 === */
+    --ts-success: 72.3% 0.219 149.579; /* green.500 */
+    --ts-success-muted: 26.6% 0.065 152.934; /* green.950 */
+    --ts-success-muted-foreground: 87.1% 0.15 154.449; /* green.300 */
+
+    --ts-error: 63.7% 0.237 25.331; /* red.500 */
+    --ts-error-muted: 25.8% 0.092 26.042; /* red.950 */
+    --ts-error-muted-foreground: 80.8% 0.114 19.571; /* red.300 */
+
+    --ts-warning: 79.5% 0.184 86.047; /* yellow.500 */
+    --ts-warning-muted: 28.6% 0.066 53.813; /* yellow.950 */
+    --ts-warning-muted-foreground: 90.5% 0.182 98.111; /* yellow.300 */
+
+    --ts-streaming: 60.6% 0.25 292.717; /* violet.500 */
+    --ts-streaming-muted: 28.3% 0.141 291.089; /* violet.950 */
+    --ts-streaming-muted-foreground: 70.2% 0.183 293.541; /* violet.400 */
+
+    /* === 节点类型颜色 === */
+    
+    /* User Input - indigo */
+    --ts-node-user: 78.5% 0.115 274.713; /* indigo.300 */
+    --ts-badge-user: 25.7% 0.09 281.288; /* indigo.950 */
+    --ts-badge-user-foreground: 78.5% 0.115 274.713; /* indigo.300 */
+    --ts-timeline-user: 67.3% 0.182 276.935; /* indigo.400 */
+
+    /* Assistant Thought (LLM) - purple */
+    --ts-node-thought: 82.7% 0.119 306.383; /* purple.300 */
+    --ts-badge-thought: 29.1% 0.149 302.717; /* purple.950 */
+    --ts-badge-thought-foreground: 82.7% 0.119 306.383; /* purple.300 */
+    --ts-timeline-thought: 71.4% 0.203 305.504; /* purple.400 */
+
+    /* Tool Call - orange */
+    --ts-node-tool: 83.7% 0.128 66.29; /* orange.300 */
+    --ts-badge-tool: 26.6% 0.079 36.259; /* orange.950 */
+    --ts-badge-tool-foreground: 83.7% 0.128 66.29; /* orange.300 */
+    --ts-timeline-tool: 75% 0.183 55.934; /* orange.400 */
+
+    /* Code Execution - cyan */
+    --ts-node-code: 86.5% 0.127 207.078; /* cyan.300 */
+    --ts-badge-code: 30.2% 0.056 229.695; /* cyan.950 */
+    --ts-badge-code-foreground: 86.5% 0.127 207.078; /* cyan.300 */
+    --ts-timeline-code: 78.9% 0.154 211.53; /* cyan.400 */
+
+    /* Execution Result - emerald */
+    --ts-node-result: 84.5% 0.143 164.978; /* emerald.300 */
+    --ts-badge-result: 26.2% 0.051 172.552; /* emerald.950 */
+    --ts-badge-result-foreground: 84.5% 0.143 164.978; /* emerald.300 */
+    --ts-timeline-result: 76.5% 0.177 163.223; /* emerald.400 */
+
+    /* Final Output - sky */
+    --ts-node-output: 82.8% 0.111 230.318; /* sky.300 */
+    --ts-badge-output: 29.3% 0.066 243.157; /* sky.950 */
+    --ts-badge-output-foreground: 82.8% 0.111 230.318; /* sky.300 */
+    --ts-timeline-output: 74.6% 0.16 232.661; /* sky.400 */
+
+    /* Error - red */
+    --ts-node-error: 80.8% 0.114 19.571; /* red.300 */
+    --ts-badge-error: 25.8% 0.092 26.042; /* red.950 */
+    --ts-badge-error-foreground: 80.8% 0.114 19.571; /* red.300 */
+    --ts-timeline-error: 70.4% 0.191 22.216; /* red.400 */
+  }
+}
+
+/**
+ * Tailwind 颜色扩展配置
+ * 在 tailwind.config.js 中引入:
+ * 
+ * colors: {
+ *   tracescope: {
+ *     background: 'oklch(var(--ts-background) / <alpha-value>)',
+ *     foreground: 'oklch(var(--ts-foreground) / <alpha-value>)',
+ *     // ... 其他颜色
+ *   }
+ * }
+ */
