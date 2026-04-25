@@ -36,8 +36,7 @@ export {
 // Components
 export { TraceTree } from '../../components/TraceTree';
 export { TraceNode } from '../../components/TraceNode';
-export { NodeHeader } from '../../components/NodeHeader';
-export { NodeContent } from '../../components/NodeContent';
+export type { TraceNodeProps } from '../../components/TraceNode';
 export { Toolbar } from '../../components/Toolbar';
 export { StatusIndicator } from '../../components/StatusIndicator';
 export { VirtualTree, VirtualTreeWithSearch } from '../../components/VirtualTree';

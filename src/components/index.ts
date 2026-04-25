@@ -10,10 +10,7 @@ export type { TraceScopeViewProps } from './TraceScopeView';
 // Tree components
 export { TraceTree } from './TraceTree';
 export { TraceNode } from './TraceNode';
-
-// Node components
-export { NodeHeader } from './NodeHeader';
-export { NodeContent } from './NodeContent';
+export type { TraceNodeProps } from './TraceNode';
 
 // Status components
 export { StatusIndicator } from './StatusIndicator';
@@ -31,3 +28,14 @@ export { VirtualTree, VirtualTreeWithSearch } from './VirtualTree';
 // Chat components (for conversation mode)
 export { VirtualChat, StreamingChat } from './VirtualChat';
 export type { VirtualChatConfig, StreamingChatConfig } from './VirtualChat';
+
+// Primitives
+export {
+  TimelineMarker,
+  JsonBlock,
+  PatchBlock,
+  type TimelineMarkerProps,
+  type MarkerType,
+  type JsonBlockProps,
+  type PatchBlockProps,
+} from './primitives';

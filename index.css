@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@300;400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Georgia", serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-background: #0a0a0a;
+  --color-surface: #111111;
+  --color-surface-container: #151515;
+  --color-outline-variant: rgba(255, 255, 255, 0.1);
+  
+  --color-accent: #c5a059;
+  --color-success: #4ade80;
+  --color-error: #fca5a5;
+  
+  --color-secondary: rgba(255, 255, 255, 0.6);
+  --color-tertiary: rgba(255, 255, 255, 0.4);
+}
+
+@layer base {
+  body {
+    @apply bg-background text-secondary font-sans selection:bg-accent selection:text-white;
+  }
+}
+
+@keyframes pulse-node {
+  0% { box-shadow: 0 0 0 0 rgba(197, 160, 89, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(197, 160, 89, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(197, 160, 89, 0); }
+}
+
+.pulse-node {
+  animation: pulse-node 2s infinite;
+}

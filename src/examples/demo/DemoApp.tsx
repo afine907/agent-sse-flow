@@ -1,9 +1,9 @@
 /**
  * TraceScope Demo Application
- * 展示新的 AgentPrism 风格设计
+ * Premium Architecture Design
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   User,
   Zap,
@@ -12,32 +12,21 @@ import {
   Terminal,
   CheckCircle,
   AlertCircle,
-  Coins,
-  DollarSign,
-  MoreHorizontal,
 } from 'lucide-react';
 
-// 导入组件
+// Components
 import { VirtualTreeWithSearch, ConnectionStatus, VirtualChat } from '../../components';
-import { Badge } from '../../components/primitives/Badge';
-import { Status } from '../../components/primitives/Status';
-import { Avatar } from '../../components/primitives/Avatar';
-import { Timeline } from '../../components/primitives/Timeline';
-import { TokensBadge } from '../../components/primitives/TokensBadge';
-import { PriceBadge } from '../../components/primitives/PriceBadge';
+import { TimelineMarker, JsonBlock, PatchBlock } from '../../components/primitives';
 
-// 导入类型
+// Types
 import type { ProtocolEvent, ProtocolMessageData } from '../../protocol/types';
 import type { TreeNode } from '../../types/tree';
 
-// 导入适配器
-import { getAdapter } from '../../protocol/adapters';
-
-// 样式
+// Styles
 import '../../styles/demo.css';
 
 // ============================================
-// Mock 数据集
+// Mock Data
 // ============================================
 
 const langchainDemoData: ProtocolEvent[] = [
@@ -181,125 +170,82 @@ const chatDemoMessages: ProtocolMessageData[] = [
 ];
 
 // ============================================
-// 组件展示面板
+// Component Showcase
 // ============================================
 
 function ComponentShowcase() {
-  const nodeTypes = [
-    { type: 'user_input' as const, label: 'User Input', icon: User },
-    { type: 'assistant_thought' as const, label: 'Thought', icon: Zap },
-    { type: 'tool_call' as const, label: 'Tool Call', icon: Wrench },
-    { type: 'code_execution' as const, label: 'Code', icon: Code },
-    { type: 'execution_result' as const, label: 'Result', icon: Terminal },
-    { type: 'final_output' as const, label: 'Output', icon: CheckCircle },
-    { type: 'error' as const, label: 'Error', icon: AlertCircle },
-  ];
-
-  const statuses = ['streaming', 'completed', 'error', 'pending'] as const;
-
   return (
     <div className="space-y-8">
-      {/* 节点类型展示 */}
+      {/* Timeline Markers */}
       <section>
-        <h3 className="text-lg font-semibold mb-4">Node Types</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {nodeTypes.map(({ type, label, icon: Icon }) => (
-            <div
-              key={type}
-              className="flex items-center gap-3 p-3 rounded-lg border bg-white"
-            >
-              <Avatar nodeType={type} size="md" />
-              <div className="flex flex-col gap-1">
-                <span className="text-sm font-medium">{label}</span>
-                <Badge
-                  iconStart={<Icon className="w-3 h-3" />}
-                  label={label}
-                  size="xs"
-                />
-              </div>
-            </div>
-          ))}
+        <h3 className="text-[10px] uppercase tracking-[5px] font-bold text-[#c5a059] mb-4">Timeline Markers</h3>
+        <div className="flex flex-wrap gap-6">
+          <div className="flex items-center gap-3">
+            <TimelineMarker type="dot" />
+            <span className="text-white/60 text-sm">Dot</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <TimelineMarker type="pulse" />
+            <span className="text-white/60 text-sm">Pulse</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <TimelineMarker type="success" />
+            <span className="text-white/60 text-sm">Success</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <TimelineMarker type="error" />
+            <span className="text-white/60 text-sm">Error</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <TimelineMarker icon={<User className="w-4 h-4" />} />
+            <span className="text-white/60 text-sm">With Icon</span>
+          </div>
         </div>
       </section>
 
-      {/* 状态展示 */}
+      {/* JSON Block */}
       <section>
-        <h3 className="text-lg font-semibold mb-4">Status Indicators</h3>
-        <div className="flex flex-wrap gap-4">
-          {statuses.map((status) => (
-            <div key={status} className="flex items-center gap-2">
-              <Status status={status} variant="dot" />
-              <Status status={status} variant="badge" />
-              <Status status={status} variant="badge" showLabel />
-            </div>
-          ))}
-        </div>
+        <h3 className="text-[10px] uppercase tracking-[5px] font-bold text-[#c5a059] mb-4">JSON Block</h3>
+        <JsonBlock
+          content={`{
+  "status": "success",
+  "matches": [
+    {"line": 42, "content": "async function validateToken(t) {"},
+    {"line": 89, "content": "const isValid = await validateToken(req.header);"}
+  ],
+  "path": "/volumes/app/src/middleware/auth-middleware.ts"
+}`}
+        />
       </section>
 
-      {/* Badge 尺寸展示 */}
+      {/* Patch Block */}
       <section>
-        <h3 className="text-lg font-semibold mb-4">Badge Sizes</h3>
-        <div className="flex items-center gap-4">
-          <Badge iconStart={<Zap className="w-3 h-3" />} label="XS" size="xs" />
-          <Badge iconStart={<Zap className="w-3 h-3" />} label="SM" size="sm" />
-          <Badge iconStart={<Zap className="w-3 h-3" />} label="MD" size="md" />
-          <Badge iconStart={<Zap className="w-3 h-3" />} label="LG" size="lg" />
-        </div>
-      </section>
-
-      {/* Token 和成本展示 */}
-      <section>
-        <h3 className="text-lg font-semibold mb-4">Tokens & Cost</h3>
-        <div className="flex flex-wrap gap-4">
-          <TokensBadge tokens={150} />
-          <TokensBadge tokens={1500} />
-          <TokensBadge tokens={15000} />
-          <TokensBadge tokens={150000} />
-          <PriceBadge cost={0.001} />
-          <PriceBadge cost={0.025} />
-          <PriceBadge cost={1.50} />
-        </div>
-      </section>
-
-      {/* Timeline 展示 */}
-      <section>
-        <h3 className="text-lg font-semibold mb-4">Timeline</h3>
-        <div className="space-y-3 p-4 rounded-lg border bg-white">
-          {nodeTypes.slice(0, 5).map(({ type }, idx) => {
-            const now = Date.now();
-            const startTime = now - 10000 + idx * 1500;
-            const endTime = startTime + 1000 + idx * 500;
-            return (
-              <div key={type} className="flex items-center gap-3">
-                <span className="w-24 text-sm text-gray-600">{type}</span>
-                <Timeline
-                  startTime={startTime}
-                  endTime={endTime}
-                  minTime={now - 10000}
-                  maxTime={now}
-                  nodeType={type}
-                  width={200}
-                />
-              </div>
-            );
-          })}
-        </div>
+        <h3 className="text-[10px] uppercase tracking-[5px] font-bold text-[#c5a059] mb-4">Patch Block</h3>
+        <PatchBlock
+          before={['if (await validateToken(token)) return next();']}
+          after={[
+            'const cached = cache.get(token);',
+            'if (cached) return next();',
+            'const valid = await validateToken(token);',
+            'cache.set(token, valid);',
+            'return next();',
+          ]}
+        />
       </section>
     </div>
   );
 }
 
 // ============================================
-// 主组件: Demo App
+// Main App
 // ============================================
 
 export default function DemoApp() {
-  const [activeTab, setActiveTab] = useState<'components' | 'tree' | 'chat'>('components');
-  const [selectedAdapter, setSelectedAdapter] = useState<string>('langchain');
+  const [activeTab, setActiveTab] = useState<'components' | 'tree' | 'chat'>('tree');
   const [treeData, setTreeData] = useState<ProtocolEvent[]>(langchainDemoData);
   const [chatMessages, setChatMessages] = useState<ProtocolMessageData[]>(chatDemoMessages);
 
-  // 转换事件数据为树结构
+  // Convert events to tree structure
   const convertToTreeData = useCallback((events: ProtocolEvent[]): TreeNode[] => {
     const nodeMap = new Map<string, TreeNode>();
     const roots: TreeNode[] = [];
@@ -363,11 +309,6 @@ export default function DemoApp() {
     return result.length > 0 ? result[0] : null;
   }, [treeData, convertToTreeData]);
 
-  const handleAdapterChange = useCallback((adapter: string) => {
-    setSelectedAdapter(adapter);
-    setTreeData(langchainDemoData);
-  }, []);
-
   const handleSendMessage = useCallback((content: string) => {
     const newUserMsg: ProtocolMessageData = {
       messageId: `msg-${Date.now()}-user`,
@@ -401,15 +342,15 @@ export default function DemoApp() {
   }, [treeData]);
 
   return (
-    <div className="demo-app min-h-screen bg-ts-background">
+    <div className="min-h-screen bg-[#0a0a0a]">
       {/* Header */}
-      <header className="demo-header border-b border-ts-border bg-ts-muted/50 px-6 py-4">
+      <header className="border-b border-white/10 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-ts-foreground">🤖 TraceScope</h1>
-            <p className="text-sm text-ts-muted-foreground">Agent Trace 可视化 - AgentPrism 设计风格</p>
+            <h1 className="text-[10px] uppercase tracking-[5px] font-bold text-[#c5a059] mb-1">TraceScope</h1>
+            <p className="text-sm text-white/40">Premium Architecture Design</p>
           </div>
-          <div className="flex items-center gap-4 text-sm text-ts-muted-foreground">
+          <div className="flex items-center gap-4 text-sm text-white/40 font-mono">
             <span>节点: {stats.totalNodes}</span>
             <span>Token: {stats.totalTokens}</span>
             <ConnectionStatus state="connected" />
@@ -417,20 +358,20 @@ export default function DemoApp() {
         </div>
       </header>
 
-      {/* Tab 导航 */}
-      <nav className="border-b border-ts-border bg-ts-background px-6">
+      {/* Tab Navigation */}
+      <nav className="border-b border-white/10 px-6">
         <div className="flex gap-1">
           {[
-            { id: 'components', label: '🎨 Components', active: activeTab === 'components' },
-            { id: 'tree', label: '🌳 Tree View', active: activeTab === 'tree' },
-            { id: 'chat', label: '💬 Chat Mode', active: activeTab === 'chat' },
-          ].map(({ id, label, active }) => (
+            { id: 'components', label: 'Components' },
+            { id: 'tree', label: 'Tree View' },
+            { id: 'chat', label: 'Chat Mode' },
+          ].map(({ id, label }) => (
             <button
               key={id}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                active
-                  ? 'border-ts-primary text-ts-foreground'
-                  : 'border-transparent text-ts-muted-foreground hover:text-ts-foreground'
+              className={`px-4 py-3 text-[10px] uppercase tracking-[3px] font-bold transition-colors ${
+                activeTab === id
+                  ? 'text-[#c5a059] border-b-2 border-[#c5a059]'
+                  : 'text-white/40 hover:text-white/60'
               }`}
               onClick={() => setActiveTab(id as any)}
             >
@@ -440,79 +381,35 @@ export default function DemoApp() {
         </div>
       </nav>
 
-      {/* 主内容区域 */}
+      {/* Main Content */}
       <main className="p-6">
-        {/* Components Showcase */}
         {activeTab === 'components' && (
           <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-ts-foreground">组件库</h2>
-              <p className="text-sm text-ts-muted-foreground">
-                基于 AgentPrism 设计语言的基础组件
-              </p>
-            </div>
             <ComponentShowcase />
           </div>
         )}
 
-        {/* Tree View */}
         {activeTab === 'tree' && (
           <div className="max-w-4xl mx-auto">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-ts-foreground">Tree View</h2>
-                <p className="text-sm text-ts-muted-foreground">适配器: {selectedAdapter}</p>
-              </div>
-              <select
-                value={selectedAdapter}
-                onChange={(e) => handleAdapterChange(e.target.value)}
-                className="px-3 py-2 border border-ts-border rounded-md text-sm bg-ts-background"
-              >
-                <option value="custom">Custom</option>
-                <option value="langchain">LangChain</option>
-                <option value="autogen">AutoGen</option>
-                <option value="dify">Dify</option>
-              </select>
-            </div>
-            <div className="border border-ts-border rounded-lg overflow-hidden">
-              <VirtualTreeWithSearch tree={tree} height={500} showSearch={true} showTypeFilter={true} />
-            </div>
+            <VirtualTreeWithSearch tree={tree} height={600} showSearch={true} showTypeFilter={true} />
           </div>
         )}
 
-        {/* Chat View */}
         {activeTab === 'chat' && (
           <div className="max-w-4xl mx-auto">
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold text-ts-foreground">Chat Mode</h2>
-              <p className="text-sm text-ts-muted-foreground">对话式 Agent 交互</p>
-            </div>
-            <div className="border border-ts-border rounded-lg overflow-hidden">
-              <VirtualChat
-                messages={chatMessages}
-                config={{
-                  showThinking: true,
-                  showTokenUsage: true,
-                  showTimestamp: true,
-                  onSendMessage: handleSendMessage,
-                }}
-                height={500}
-              />
-            </div>
+            <VirtualChat
+              messages={chatMessages}
+              config={{
+                showThinking: true,
+                showTokenUsage: true,
+                showTimestamp: true,
+                onSendMessage: handleSendMessage,
+              }}
+              height={600}
+            />
           </div>
         )}
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-ts-border bg-ts-muted/30 px-6 py-3 text-center text-xs text-ts-muted-foreground">
-        TraceScope v1.0.0 • AgentPrism Design System •{' '}
-        <a
-          href="https://github.com/afine907/react-tracescope"
-          className="text-ts-primary hover:underline"
-        >
-          GitHub
-        </a>
-      </footer>
     </div>
   );
 }

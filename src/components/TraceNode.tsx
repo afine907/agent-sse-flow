@@ -1,85 +1,74 @@
 /**
  * Trace Node Component
- * 升级版：集成新的设计系统
+ * Premium Architecture Design - Timeline Layout
  */
 
-import React, { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import type { TreeNode } from '../types/tree';
-import { NodeHeader } from './NodeHeader';
-import { NodeContent } from './NodeContent';
+import { TimelineMarker, type MarkerType } from './primitives/TimelineMarker';
 import { useNodeExpanded } from '../adapters/react/hooks';
 import { useTreeKeyboard } from '../hooks';
 import type { NodeTypeName } from '../types/node';
+import {
+  User,
+  Zap,
+  Wrench,
+  Code,
+  Terminal,
+  CheckCircle,
+  AlertCircle,
+} from 'lucide-react';
 import cn from 'classnames';
 
 export interface TraceNodeProps {
   node: TreeNode;
   depth: number;
+  isLast?: boolean;
   className?: string;
-  /**
-   * Show timeline in header
-   */
-  showTimeline?: boolean;
-  /**
-   * Show tokens badge
-   */
-  showTokens?: boolean;
-  /**
-   * Show cost badge
-   */
-  showCost?: boolean;
-  /**
-   * Trace time range
-   */
-  minTime?: number;
-  maxTime?: number;
+  children?: ReactNode;
 }
 
-/**
- * Default indentation per level (24px)
- */
-const INDENT_SIZE = 24;
+// Node type configuration
+const NODE_TYPE_CONFIG: Record<NodeTypeName, { label: string; icon: typeof User }> = {
+  user_input: { label: 'USER INPUT', icon: User },
+  assistant_thought: { label: 'THOUGHT', icon: Zap },
+  tool_call: { label: 'TOOL CALL', icon: Wrench },
+  code_execution: { label: 'CODE', icon: Code },
+  execution_result: { label: 'RESULT', icon: Terminal },
+  final_output: { label: 'OUTPUT', icon: CheckCircle },
+  error: { label: 'ERROR', icon: AlertCircle },
+};
 
-// Map node types to border colors
-const NODE_TYPE_BORDER: Record<NodeTypeName, string> = {
-  user_input: 'border-l-indigo-500',
-  assistant_thought: 'border-l-purple-500',
-  tool_call: 'border-l-orange-500',
-  code_execution: 'border-l-cyan-500',
-  execution_result: 'border-l-emerald-500',
-  final_output: 'border-l-sky-500',
-  error: 'border-l-red-500',
+// Status to marker type mapping
+const STATUS_TO_MARKER: Record<string, MarkerType> = {
+  streaming: 'pulse',
+  complete: 'success',
+  completed: 'success',
+  error: 'error',
 };
 
 /**
  * TraceNode Component
- * Recursively renders a node and its children
+ * Timeline-style recursive node rendering
  */
 export function TraceNode({
   node,
   depth,
-  className = '',
-  showTimeline = false,
-  showTokens = false,
-  showCost = false,
-  minTime,
-  maxTime,
+  isLast = false,
+  className,
+  children,
 }: TraceNodeProps): JSX.Element {
   const { isExpanded, toggle } = useNodeExpanded(node.nodeId);
 
-  // Calculate indentation
-  const indentStyle = useMemo(
-    () => ({
-      paddingLeft: `${depth * INDENT_SIZE}px`,
-    }),
-    [depth]
-  );
-
-  // Get node type for styling
+  // Get node type
   const nodeType = (node.data.nodeType || 'final_output') as NodeTypeName;
-  const borderClass = NODE_TYPE_BORDER[nodeType] || NODE_TYPE_BORDER.final_output;
+  const config = NODE_TYPE_CONFIG[nodeType] || NODE_TYPE_CONFIG.final_output;
 
-  // Determine if node has children
+  // Get marker type based on status
+  const status = node.data.status || 'streaming';
+  const markerType = STATUS_TO_MARKER[status] || 'pulse';
+
+  // Check for children
   const hasChildren = node.children && node.children.length > 0;
 
   // Keyboard navigation
@@ -88,20 +77,27 @@ export function TraceNode({
     onToggle: toggle,
   });
 
-  // Get status
-  const status = node.data.status;
+  // Format timestamp
+  const timestamp = node.data.createdAt != null
+    ? new Date(node.data.createdAt).toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }) + '.' + String(node.data.createdAt % 1000).padStart(3, '0')
+    : undefined;
+
+  // Indentation for depth > 0
+  const indentStyle = useMemo(
+    () => ({
+      marginLeft: depth > 0 ? `${depth * 24}px` : undefined,
+    }),
+    [depth]
+  );
 
   return (
     <div
-      className={cn(
-        'mb-2 group relative',
-        'rounded-lg border border-l-4 border-gray-200',
-        borderClass,
-        'bg-white hover:border-gray-300',
-        'transition-all duration-200',
-        status === 'streaming' && 'animate-pulse',
-        className
-      )}
+      className={cn('relative group', !isLast && 'pb-14', className)}
       style={indentStyle}
       data-node-id={node.nodeId}
       data-depth={depth}
@@ -110,51 +106,69 @@ export function TraceNode({
       tabIndex={0}
       onKeyDown={handleKeyDown}
     >
-      {/* Node Header */}
-      <div className="p-2">
-        <NodeHeader
-          node={node.data}
-          isExpanded={isExpanded}
-          hasChildren={hasChildren}
-          onToggleExpand={toggle}
-          showTimeline={showTimeline}
-          showTokens={showTokens}
-          showCost={showCost}
-          minTime={minTime}
-          maxTime={maxTime}
+      {/* Connector line */}
+      {!isLast && (
+        <div className="absolute left-[23px] top-6 bottom-0 w-px bg-white/10" />
+      )}
+
+      {/* Marker */}
+      <div className="absolute left-[14px] top-1 w-5 h-5 flex items-center justify-center bg-[#0a0a0a] z-10">
+        <TimelineMarker
+          type={status === 'error' ? 'error' : hasChildren ? 'dot' : markerType}
+          icon={<config.icon className="w-4 h-4" />}
         />
       </div>
 
-      {/* Node Content */}
-      <div className="px-2 pb-2">
-        <NodeContent
-          content={node.data.chunk}
-          status={status}
-          nodeType={nodeType}
-        />
+      {/* Content */}
+      <div className="pl-14 space-y-3">
+        {/* Header */}
+        <div className="flex items-baseline justify-between mb-4">
+          <span
+            className={cn(
+              'text-[10px] uppercase tracking-[5px] font-bold',
+              status === 'error' ? 'text-[#fca5a5]' : 'text-[#c5a059]'
+            )}
+          >
+            {config.label}
+          </span>
+          {timestamp && (
+            <span className="font-mono text-[11px] text-white/40 tracking-widest uppercase">
+              {timestamp}
+            </span>
+          )}
+        </div>
+
+        {/* Body */}
+        <div className="text-white/50 text-base font-light leading-relaxed">
+          {children || (
+            <p className="text-white/60 text-base leading-relaxed max-w-xl">
+              {node.data.chunk || 'Processing...'}
+            </p>
+          )}
+        </div>
+
+        {/* Expand button for children */}
+        {hasChildren && (
+          <button
+            onClick={toggle}
+            className="text-[10px] uppercase tracking-[3px] text-white/30 hover:text-white/60 transition-colors mt-2"
+          >
+            {isExpanded ? '▼ Hide Details' : '▶ Show Details'}
+          </button>
+        )}
       </div>
 
       {/* Children */}
       {hasChildren && isExpanded && (
-        <div className="relative">
-          {/* Connector line */}
-          <div className="absolute left-3 top-0 bottom-0 w-px bg-gray-200" />
-          
-          {/* Child nodes */}
-          <div className="space-y-1">
-            {node.children.map((child, idx) => (
-              <TraceNode
-                key={child.nodeId}
-                node={child}
-                depth={depth + 1}
-                showTimeline={showTimeline}
-                showTokens={showTokens}
-                showCost={showCost}
-                minTime={minTime}
-                maxTime={maxTime}
-              />
-            ))}
-          </div>
+        <div className="mt-4">
+          {node.children.map((child, idx) => (
+            <TraceNode
+              key={child.nodeId}
+              node={child}
+              depth={depth + 1}
+              isLast={idx === node.children.length - 1}
+            />
+          ))}
         </div>
       )}
     </div>

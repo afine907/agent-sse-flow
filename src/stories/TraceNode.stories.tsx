@@ -8,7 +8,7 @@ const meta: Meta<typeof TraceNode> = {
   tags: ['autodocs'],
   decorators: [
     (Story) => (
-      <div className="p-4 bg-ts-background min-h-[400px]">
+      <div className="min-h-screen bg-[#0a0a0a] p-8">
         <Story />
       </div>
     ),
@@ -56,7 +56,7 @@ export const WithChildren: Story = {
   render: () => {
     const childNode = createNode('tool_call', 'get_weather()', [], 'completed');
     const parentNode = createNode('assistant_thought', '需要调用天气工具', [childNode], 'completed');
-    
+
     return <TraceNode node={parentNode} depth={0} />;
   },
 };
@@ -79,20 +79,27 @@ export const Error: Story = {
   ),
 };
 
-export const WithMetrics: Story = {
+export const Timeline: Story = {
   render: () => {
-    const node = createNode('assistant_thought', '根据用户意图，需要查询天气信息');
-    
+    const nodes = [
+      createNode('user_input', '帮我查一下北京的天气'),
+      createNode('assistant_thought', '正在分析用户意图...'),
+      createNode('tool_call', 'get_weather(city="Beijing")'),
+      createNode('execution_result', '北京：晴，22°C'),
+      createNode('final_output', '北京今天天气晴，气温22°C，适合外出。'),
+    ];
+
     return (
-      <TraceNode
-        node={node}
-        depth={0}
-        showTokens={true}
-        showCost={true}
-        minTime={Date.now() - 10000}
-        maxTime={Date.now()}
-        showTimeline={true}
-      />
+      <div className="relative">
+        {nodes.map((node, index) => (
+          <TraceNode
+            key={node.nodeId}
+            node={node}
+            depth={0}
+            isLast={index === nodes.length - 1}
+          />
+        ))}
+      </div>
     );
   },
 };
