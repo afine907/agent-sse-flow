@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent SSE Flow - Live Demo</title>
+  <meta name="description" content="Free, unlimited React component for visualizing Agent execution traces from SSE streams">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #0a0a0f;
+      color: #eaeaea;
+      min-height: 100vh;
+    }
+    
+    .demo-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .demo-header {
+      text-align: center;
+      padding: 40px 20px;
+    }
+    
+    .demo-header h1 {
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .demo-header p {
+      font-size: 20px;
+      color: #888;
+      max-width: 600px;
+      margin: 0 auto 24px;
+    }
+    
+    .demo-badges {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 6px 12px;
+      background: #1a1a2e;
+      border-radius: 6px;
+      font-size: 14px;
+      border: 1px solid #2d2d44;
+    }
+    
+    .demo-features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+    
+    .feature-card {
+      background: #1a1a2e;
+      border: 1px solid #2d2d44;
+      border-radius: 12px;
+      padding: 24px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.1);
+    }
+    
+    .feature-card h3 {
+      font-size: 18px;
+      margin-bottom: 8px;
+      color: #3b82f6;
+    }
+    
+    .feature-card p {
+      color: #888;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    
+    .demo-live {
+      background: #1a1a2e;
+      border: 1px solid #2d2d44;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 40px;
+    }
+    
+    .demo-live-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      background: #16162a;
+      border-bottom: 1px solid #2d2d44;
+    }
+    
+    .demo-live-header h2 {
+      font-size: 18px;
+    }
+    
+    .demo-controls {
+      display: flex;
+      gap: 12px;
+    }
+    
+    .demo-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    
+    .demo-btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+    
+    .demo-btn-primary:hover {
+      background: #2563eb;
+    }
+    
+    .demo-btn-secondary {
+      background: #2d2d44;
+      color: #eaeaea;
+    }
+    
+    .demo-btn-secondary:hover {
+      background: #3d3d5c;
+    }
+    
+    #agent-flow-container {
+      height: 600px;
+      padding: 20px;
+    }
+    
+    .demo-code {
+      background: #1a1a2e;
+      border: 1px solid #2d2d44;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 40px;
+    }
+    
+    .demo-code h3 {
+      font-size: 18px;
+      margin-bottom: 16px;
+    }
+    
+    pre {
+      background: #0a0a0f;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    
+    code {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    }
+    
+    .keyword { color: #c678dd; }
+    .string { color: #98c379; }
+    .function { color: #61afef; }
+    .comment { color: #5c6370; }
+    
+    .demo-footer {
+      text-align: center;
+      padding: 40px 20px;
+      border-top: 1px solid #2d2d44;
+    }
+    
+    .demo-footer a {
+      color: #3b82f6;
+      text-decoration: none;
+    }
+    
+    .demo-footer a:hover {
+      text-decoration: underline;
+    }
+    
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-bottom: 20px;
+    }
+    
+    .stat-item {
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #3b82f6;
+    }
+    
+    .stat-label {
+      font-size: 14px;
+      color: #888;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-container">
+    <header class="demo-header">
+      <h1>Agent SSE Flow</h1>
+      <p>Free, unlimited React component for visualizing Agent execution traces. LangSmith alternative.</p>
+      
+      <div class="demo-badges">
+        <span class="badge">✅ 100% Free</span>
+        <span class="badge">🔒 Local & Private</span>
+        <span class="badge">⚡ 10K+ Events</span>
+        <span class="badge">📦 5-min Setup</span>
+      </div>
+    </header>
+    
+    <div class="demo-features">
+      <div class="feature-card">
+        <h3>🆓 Unlimited & Free</h3>
+        <p>No trace limits, no monthly fees. Unlike LangSmith's 5000 traces/month limit.</p>
+      </div>
+      
+      <div class="feature-card">
+        <h3>🔒 Data Privacy</h3>
+        <p>All data stays local. Your agent traces never leave your machine.</p>
+      </div>
+      
+      <div class="feature-card">
+        <h3>⚡ High Performance</h3>
+        <p>Virtual scrolling handles 10,000+ events without breaking a sweat.</p>
+      </div>
+      
+      <div class="feature-card">
+        <h3>🎨 Beautiful UI</h3>
+        <p>Dark/Light themes, timeline view, markdown support out of the box.</p>
+      </div>
+    </div>
+    
+    <div class="demo-live">
+      <div class="demo-live-header">
+        <h2>🎥 Live Demo</h2>
+        <div class="demo-controls">
+          <button class="demo-btn demo-btn-secondary" id="theme-toggle">Toggle Theme</button>
+          <button class="demo-btn demo-btn-primary" id="start-demo">Start Demo</button>
+        </div>
+      </div>
+      <div id="agent-flow-container"></div>
+    </div>
+    
+    <div class="demo-code">
+      <h3>Quick Start</h3>
+      <pre><code><span class="comment"># Install</span>
+npm install agent-sse-flow
+
+<span class="comment"># Use</span>
+<span class="keyword">import</span> { AgentFlow } <span class="keyword">from</span> <span class="string">'agent-sse-flow'</span>
+<span class="keyword">import</span> <span class="string">'agent-sse-flow/style.css'</span>
+
+<span class="keyword">function</span> <span class="function">App</span>() {
+  <span class="keyword">return</span> (
+    &lt;AgentFlow 
+      url=<span class="string">"http://localhost:8080/agent/stream"</span>
+      theme=<span class="string">"dark"</span>
+    /&gt;
+  )
+}</code></pre>
+    </div>
+    
+    <footer class="demo-footer">
+      <div class="stats">
+        <div class="stat-item">
+          <div class="stat-value">0</div>
+          <div class="stat-label">GitHub Stars</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">10K+</div>
+          <div class="stat-label">Events Supported</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">5min</div>
+          <div class="stat-label">Setup Time</div>
+        </div>
+      </div>
+      
+      <p>
+        <a href="https://github.com/afine907/agent-sse-flow">GitHub</a> • 
+        <a href="https://www.npmjs.com/package/agent-sse-flow">NPM</a> • 
+        <a href="https://github.com/afine907/agent-sse-flow/issues">Issues</a>
+      </p>
+    </footer>
+  </div>
+  
+  <script type="module">
+    // Simple demo without React for static hosting
+    const container = document.getElementById('agent-flow-container');
+    const themeToggle = document.getElementById('theme-toggle');
+    const startBtn = document.getElementById('start-demo');
+    
+    let isDark = true;
+    let eventCount = 0;
+    let isRunning = false;
+    let interval = null;
+    
+    const eventTypes = [
+      { type: 'start', message: 'Agent started' },
+      { type: 'thinking', message: 'Analyzing your request...' },
+      { type: 'tool_call', tool: 'read_file', args: { path: '/src/index.ts' } },
+      { type: 'tool_result', result: 'export function main() {...}' },
+      { type: 'message', message: 'I found the issue. Let me fix it.' },
+      { type: 'tool_call', tool: 'edit_file', args: { path: '/src/index.ts', line: 42 } },
+      { type: 'tool_result', result: 'File updated successfully' },
+      { type: 'end', message: 'Task completed!' }
+    ];
+    
+    function createEventHTML(event, index) {
+      const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+      const icon = {
+        start: '▶️',
+        thinking: '💭',
+        tool_call: '🔧',
+        tool_result: '✅',
+        message: '💬',
+        end: '🏁'
+      }[event.type];
+      
+      return `
+        <div style="
+          display: flex;
+          gap: 12px;
+          padding: 12px;
+          background: ${isDark ? '#242442' : '#f5f5f5'};
+          border-radius: 6px;
+          border-left: 3px solid ${event.type === 'tool_call' ? '#f59e0b' : event.type === 'tool_result' ? '#10b981' : '#3b82f6'};
+          margin-bottom: 12px;
+          animation: slideIn 0.3s ease;
+        ">
+          <span style="font-size: 18px;">${icon}</span>
+          <div style="flex: 1;">
+            <div style="display: flex; gap: 8px; font-size: 12px; margin-bottom: 4px;">
+              <span style="text-transform: uppercase; opacity: 0.7;">${event.type}</span>
+              <span style="opacity: 0.5; font-family: monospace;">${time}</span>
+            </div>
+            ${event.message ? `<div>${event.message}</div>` : ''}
+            ${event.tool ? `
+              <div style="margin-top: 8px;">
+                <span style="
+                  background: #3b82f6;
+                  color: white;
+                  padding: 2px 8px;
+                  border-radius: 4px;
+                  font-family: monospace;
+                  font-size: 12px;
+                ">${event.tool}</span>
+              </div>
+            ` : ''}
+            ${event.result ? `
+              <pre style="
+                margin-top: 8px;
+                padding: 8px;
+                background: ${isDark ? '#1a1a2e' : '#e5e7eb'};
+                border-radius: 4px;
+                font-size: 12px;
+                overflow-x: auto;
+              ">${event.result}</pre>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }
+    
+    function startDemo() {
+      if (isRunning) {
+        clearInterval(interval);
+        isRunning = false;
+        startBtn.textContent = 'Start Demo';
+        return;
+      }
+      
+      isRunning = true;
+      startBtn.textContent = 'Stop Demo';
+      container.innerHTML = `
+        <div style="
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 16px;
+          background: ${isDark ? '#16162a' : '#f9f9f9'};
+          border-bottom: 1px solid ${isDark ? '#2d2d44' : '#e0e0e0'};
+        ">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="
+              width: 8px;
+              height: 8px;
+              background: #10b981;
+              border-radius: 50%;
+              animation: pulse 2s infinite;
+            "></span>
+            <span style="font-size: 13px; text-transform: uppercase;">connected</span>
+          </div>
+          <span style="font-size: 12px; opacity: 0.6; font-family: monospace;" id="event-count">0 events</span>
+        </div>
+        <div id="events-list" style="padding: 16px; max-height: 520px; overflow-y: auto;"></div>
+      `;
+      
+      const eventsList = document.getElementById('events-list');
+      const eventCountEl = document.getElementById('event-count');
+      
+      let eventIndex = 0;
+      interval = setInterval(() => {
+        const event = eventTypes[eventIndex % eventTypes.length];
+        eventsList.insertAdjacentHTML('beforeend', createEventHTML(event, eventIndex));
+        eventCount++;
+        eventCountEl.textContent = `${eventCount} events`;
+        eventsList.scrollTop = eventsList.scrollHeight;
+        eventIndex++;
+      }, 800);
+    }
+    
+    themeToggle.addEventListener('click', () => {
+      isDark = !isDark;
+      document.body.style.background = isDark ? '#0a0a0f' : '#ffffff';
+      document.body.style.color = isDark ? '#eaeaea' : '#333333';
+    });
+    
+    startBtn.addEventListener('click', startDemo);
+    
+    // Add CSS animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+    `;
+    document.head.appendChild(style);
+  </script>
+</body>
+</html>

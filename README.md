@@ -2,7 +2,15 @@
 
 > Agent SSE Stream Visualizer - Free, unlimited, local
 
+[![NPM Version](https://img.shields.io/npm/v/agent-sse-flow.svg)](https://www.npmjs.com/package/agent-sse-flow)
+[![License](https://img.shields.io/npm/l/agent-sse-flow.svg)](https://github.com/afine907/agent-sse-flow/blob/main/LICENSE)
+[![Downloads](https://img.shields.io/npm/dw/agent-sse-flow.svg)](https://www.npmjs.com/package/agent-sse-flow)
+
+**[🎬 Live Demo](https://afine907.github.io/agent-sse-flow/)** | **[📦 NPM](https://www.npmjs.com/package/agent-sse-flow)** | **[🐛 Issues](https://github.com/afine907/agent-sse-flow/issues)**
+
 A lightweight React component for visualizing Agent execution traces from SSE streams.
+
+![AgentFlow Demo](./docs/demo-screenshot.png)
 
 ## Why?
 
