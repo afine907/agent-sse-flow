@@ -58,6 +58,29 @@ function formatTime(ts: number): string {
   return d.toLocaleTimeString('en-US', { hour12: false });
 }
 
+/** Copy text to clipboard with fallback for non-HTTPS */
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    // Fallback for non-HTTPS: use textarea
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const success = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return success;
+  } catch (err) {
+    console.error('[AgentFlow] Failed to copy:', err);
+    return false;
+  }
+}
+
 /** Module-scoped icon map — never recreated */
 const EVENT_ICONS: Record<FlowEvent['type'], string> = {
   start: '▶️',
@@ -88,12 +111,8 @@ const EventRow = memo(function EventRow({
 }) {
   const time = event.timestamp ? formatTime(event.timestamp) : null;
 
-  const copyToClipboard = useCallback(async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (err) {
-      console.error('[AgentFlow] Failed to copy:', err);
-    }
+  const handleCopy = useCallback((text: string) => {
+    copyToClipboard(text);
   }, []);
 
   return (
@@ -117,6 +136,7 @@ const EventRow = memo(function EventRow({
                 <button
                   className="agent-flow__tool-toggle"
                   onClick={onToggleArgs}
+                  type="button"
                 >
                   {showArgs ? '▼' : '▶'} args
                 </button>
@@ -126,8 +146,9 @@ const EventRow = memo(function EventRow({
               <pre className="agent-flow__tool-args">
                 <button
                   className="agent-flow__copy-btn"
-                  onClick={() => copyToClipboard(event.argsJson!)}
+                  onClick={() => handleCopy(event.argsJson!)}
                   title="Copy"
+                  type="button"
                 >
                   📋
                 </button>
@@ -140,8 +161,9 @@ const EventRow = memo(function EventRow({
           <div className="agent-flow__event-result agent-flow__markdown">
             <button
               className="agent-flow__copy-btn"
-              onClick={() => copyToClipboard(event.result!)}
+              onClick={() => handleCopy(event.result!)}
               title="Copy"
+              type="button"
             >
               📋
             </button>
@@ -200,18 +222,21 @@ const TimelineRow = memo(function TimelineRow({
 }) {
   const time = event.timestamp ? formatTime(event.timestamp) : null;
 
-  const copyToClipboard = useCallback(async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (err) {
-      console.error('[AgentFlow] Failed to copy:', err);
-    }
+  const handleCopy = useCallback((text: string) => {
+    copyToClipboard(text);
   }, []);
 
   return (
     <div
       className={`agent-flow__timeline-item agent-flow__timeline-item--${event.type}${collapsed ? ' agent-flow__timeline-item--collapsed' : ''}`}
       onClick={onToggle}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          onToggle();
+        }
+      }}
     >
       <div className="agent-flow__timeline-track">
         <span
@@ -244,6 +269,7 @@ const TimelineRow = memo(function TimelineRow({
                     <button
                       className="agent-flow__tool-toggle"
                       onClick={onToggleArgs}
+                      type="button"
                     >
                       {showArgs ? '▼' : '▶'} args
                     </button>
@@ -253,8 +279,9 @@ const TimelineRow = memo(function TimelineRow({
                   <pre className="agent-flow__tool-args">
                     <button
                       className="agent-flow__copy-btn"
-                      onClick={() => copyToClipboard(event.argsJson!)}
+                      onClick={() => handleCopy(event.argsJson!)}
                       title="Copy"
+                      type="button"
                     >
                       📋
                     </button>
@@ -267,8 +294,9 @@ const TimelineRow = memo(function TimelineRow({
               <div className="agent-flow__event-result agent-flow__markdown">
                 <button
                   className="agent-flow__copy-btn"
-                  onClick={() => copyToClipboard(event.result!)}
+                  onClick={() => handleCopy(event.result!)}
                   title="Copy"
+                  type="button"
                 >
                   📋
                 </button>
@@ -299,6 +327,37 @@ export function AgentFlow({
   const [collapsedIds, setCollapsedIds] = useState<Set<number>>(new Set());
   const [expandedArgsIds, setExpandedArgsIds] = useState<Set<number>>(new Set());
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+
+  // Refs for cleanup and state tracking
+  const pendingRef = useRef<FlowEvent[]>([]);
+  const rafRef = useRef<number | null>(null);
+  const idCounterRef = useRef(0);
+  const parentRef = useRef<HTMLDivElement>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const isMountedRef = useRef(true);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      
+      // Close EventSource
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      
+      // Cancel pending RAF
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      
+      // Clear pending events
+      pendingRef.current = [];
+    };
+  }, []);
 
   const toggleCollapse = useCallback((id: number) => {
     setCollapsedIds(prev => {
@@ -336,15 +395,13 @@ export function AgentFlow({
   }, [events.length]);
 
   // Batching: buffer SSE messages and flush once per animation frame
-  const pendingRef = useRef<FlowEvent[]>([]);
-  const rafRef = useRef<number | null>(null);
-  const idCounterRef = useRef(0);
-  const parentRef = useRef<HTMLDivElement>(null);
-
   const flushPending = useCallback(() => {
     const pending = pendingRef.current;
     if (pending.length === 0) return;
     pendingRef.current = [];
+
+    // Check if component is still mounted before updating state
+    if (!isMountedRef.current) return;
 
     setEvents(prev => {
       const next = [...prev, ...pending];
@@ -362,15 +419,26 @@ export function AgentFlow({
   }, [onStatusChange]);
 
   const connect = useCallback(() => {
+    // Close existing connection if any
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+
     handleStatusChange('connecting');
 
     const eventSource = new EventSource(url);
+    eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
-      handleStatusChange('connected');
+      if (isMountedRef.current) {
+        handleStatusChange('connected');
+      }
     };
 
     eventSource.onmessage = (e) => {
+      if (!isMountedRef.current) return;
+      
       try {
         const raw = JSON.parse(e.data);
         let argsJson: string | undefined;
@@ -399,24 +467,36 @@ export function AgentFlow({
         }
       } catch (err) {
         console.error('[AgentFlow] Failed to parse event:', err);
+        // Trigger error callback for parse errors
+        if (isMountedRef.current) {
+          onError?.(new Error(`Failed to parse SSE event: ${err}`));
+        }
       }
     };
 
     eventSource.onerror = () => {
+      if (!isMountedRef.current) return;
+      
       handleStatusChange('error');
       const error = new Error('SSE connection failed');
       onError?.(error);
       eventSource.close();
+      eventSourceRef.current = null;
     };
 
     return () => {
-      eventSource.close();
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
       flushPending();
-      handleStatusChange('disconnected');
+      if (isMountedRef.current) {
+        handleStatusChange('disconnected');
+      }
     };
   }, [url, handleStatusChange, onError, flushPending]);
 
