@@ -36,6 +36,18 @@
   border-bottom: 1px solid;
 }
 
+.agent-flow__header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.agent-flow__header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .agent-flow--dark .agent-flow__header {
   border-color: #2d2d44;
   background: #16162a;
@@ -204,6 +216,50 @@
   font-size: 11px;
   opacity: 0.5;
   font-family: monospace;
+}
+
+.agent-flow__agent-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  background: #3b82f6;
+  color: white;
+}
+
+.agent-flow__duration {
+  font-size: 11px;
+  opacity: 0.6;
+  font-family: monospace;
+}
+
+.agent-flow__cost,
+.agent-flow__tokens {
+  font-size: 11px;
+  opacity: 0.6;
+  font-family: monospace;
+  padding: 2px 6px;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 4px;
+}
+
+.agent-flow__agent-filter {
+  padding: 6px 12px;
+  border: 1px solid;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  background: transparent;
+}
+
+.agent-flow--dark .agent-flow__agent-filter {
+  border-color: #2d2d44;
+  color: #eaeaea;
+}
+
+.agent-flow--light .agent-flow__agent-filter {
+  border-color: #e0e0e0;
+  color: #333333;
 }
 
 .agent-flow__event-message {

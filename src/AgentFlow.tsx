@@ -50,6 +50,16 @@ export interface FlowEvent {
   timestamp?: number;
   /** Pre-serialized args for performance */
   argsJson?: string;
+  /** Agent name (for multi-agent systems) */
+  agentName?: string;
+  /** Agent color (hex format, e.g. #3b82f6) */
+  agentColor?: string;
+  /** Cost in USD (optional) */
+  cost?: number;
+  /** Token count (optional) */
+  tokens?: number;
+  /** Duration in milliseconds (optional) */
+  duration?: number;
 }
 
 /** Format timestamp to HH:MM:SS */
@@ -102,6 +112,17 @@ const EventRow = memo(function EventRow({
       <div className="agent-flow__event-content">
         <div className="agent-flow__event-header">
           <span className="agent-flow__event-type">{event.type}</span>
+          {event.agentName && (
+            <span 
+              className="agent-flow__agent-badge"
+              style={event.agentColor ? { background: event.agentColor } : undefined}
+            >
+              {event.agentName}
+            </span>
+          )}
+          {event.duration !== undefined && (
+            <span className="agent-flow__duration">{event.duration}ms</span>
+          )}
           {time && <span className="agent-flow__event-time">{time}</span>}
         </div>
         {event.message && (
@@ -299,6 +320,17 @@ export function AgentFlow({
   const [collapsedIds, setCollapsedIds] = useState<Set<number>>(new Set());
   const [expandedArgsIds, setExpandedArgsIds] = useState<Set<number>>(new Set());
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+
+  // Compute unique agents and stats
+  const agents = Array.from(new Set(events.map(e => e.agentName).filter(Boolean))) as string[];
+  const totalCost = events.reduce((sum, e) => sum + (e.cost || 0), 0);
+  const totalTokens = events.reduce((sum, e) => sum + (e.tokens || 0), 0);
+  
+  // Filter events by selected agent
+  const filteredEvents = selectedAgent 
+    ? events.filter(e => e.agentName === selectedAgent)
+    : events;
 
   const toggleCollapse = useCallback((id: number) => {
     setCollapsedIds(prev => {
@@ -428,7 +460,7 @@ export function AgentFlow({
 
   // Virtual scrolling
   const virtualizer = useVirtualizer({
-    count: events.length,
+    count: filteredEvents.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 80,
     overscan: 5,
@@ -460,21 +492,43 @@ export function AgentFlow({
     <div className={`agent-flow agent-flow--${theme}${viewMode === 'timeline' ? ' agent-flow--timeline' : ''}`}>
       {/* Header */}
       <div className="agent-flow__header">
-        <span className="agent-flow__status">
-          <span className={`agent-flow__status-dot agent-flow__status-dot--${status}`} />
-          {status}
-        </span>
-        <span className="agent-flow__event-count">{events.length} events</span>
-        {status === 'disconnected' && (
-          <button className="agent-flow__connect-btn" onClick={connect}>
-            Connect
-          </button>
-        )}
+        <div className="agent-flow__header-left">
+          <span className="agent-flow__status">
+            <span className={`agent-flow__status-dot agent-flow__status-dot--${status}`} />
+            {status}
+          </span>
+          <span className="agent-flow__event-count">{filteredEvents.length} events</span>
+          {totalCost > 0 && (
+            <span className="agent-flow__cost">${totalCost.toFixed(4)}</span>
+          )}
+          {totalTokens > 0 && (
+            <span className="agent-flow__tokens">{totalTokens.toLocaleString()} tokens</span>
+          )}
+        </div>
+        <div className="agent-flow__header-right">
+          {agents.length > 0 && (
+            <select 
+              className="agent-flow__agent-filter"
+              value={selectedAgent || ''}
+              onChange={(e) => setSelectedAgent(e.target.value || null)}
+            >
+              <option value="">All Agents</option>
+              {agents.map(agent => (
+                <option key={agent} value={agent}>{agent}</option>
+              ))}
+            </select>
+          )}
+          {status === 'disconnected' && (
+            <button className="agent-flow__connect-btn" onClick={connect}>
+              Connect
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Events (virtualized) */}
       <div ref={parentRef} className="agent-flow__events">
-        {events.length === 0 ? (
+        {filteredEvents.length === 0 ? (
           <div className="agent-flow__empty">No events yet. Waiting for agent...</div>
         ) : (
           <div
@@ -482,7 +536,7 @@ export function AgentFlow({
             style={{ height: virtualizer.getTotalSize() }}
           >
             {virtualizer.getVirtualItems().map((virtualRow) => {
-              const event = events[virtualRow.index];
+              const event = filteredEvents[virtualRow.index];
               return (
                 <div
                   key={event.id}
@@ -521,7 +575,7 @@ export function AgentFlow({
             })}
           </div>
         )}
-        {showScrollBottom && events.length > 0 && (
+        {showScrollBottom && filteredEvents.length > 0 && (
           <button className="agent-flow__scroll-bottom" onClick={scrollToBottom} title="Scroll to bottom">
             ↓
           </button>
