@@ -1,57 +1,25 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { AgentFlow } from './AgentFlow'
 import './AgentFlow.css'
 
-// Mock SSE 数据
-const mockEvents = [
-  { type: 'start', message: 'Agent started' },
-  { type: 'thinking', message: 'Analyzing your request...' },
-  { type: 'tool_call', tool: 'read_file', args: { path: 'src/index.ts' } },
-  { type: 'tool_result', result: '// File content here...' },
-  { type: 'message', message: 'I found the issue in your code.' },
-  { type: 'tool_call', tool: 'write_file', args: { path: 'src/fix.ts', content: '// Fixed code' } },
-  { type: 'tool_result', result: 'File written successfully' },
-  { type: 'end', message: 'Task completed!' },
-]
+const MOCK_SERVER = 'http://localhost:3001'
 
-// 简单的 Demo 组件
 function Demo() {
-  const [events, setEvents] = React.useState<typeof mockEvents>([])
-  const [status, setStatus] = React.useState<'disconnected' | 'connected' | 'running'>('disconnected')
-  const intervalRef = React.useRef<NodeJS.Timeout | null>(null)
+  const [theme, setTheme] = React.useState<'dark' | 'light'>('dark')
+  const [eventCount, setEventCount] = React.useState(1000)
+  const [sseUrl, setSseUrl] = React.useState('')
+  const [running, setRunning] = React.useState(false)
 
-  const simulateSSE = () => {
-    // 清除之前的 interval
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-    }
-    
-    setEvents([])
-    setStatus('running')
-    
-    let index = 0
-    intervalRef.current = setInterval(() => {
-      if (index < mockEvents.length) {
-        setEvents(prev => [...prev, mockEvents[index]])
-        index++
-      } else {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current)
-          intervalRef.current = null
-        }
-        setStatus('connected')
-      }
-    }, 1000)
+  const startStream = () => {
+    setSseUrl(`${MOCK_SERVER}/stream?count=${eventCount}`)
+    setRunning(true)
   }
 
-  // 清理
-  React.useEffect(() => {
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
-  }, [])
+  const stopStream = () => {
+    setSseUrl('')
+    setRunning(false)
+  }
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -60,104 +28,130 @@ function Demo() {
           agent-sse-flow Demo
         </h1>
         <p style={{ color: '#888', fontSize: '14px' }}>
-          Agent SSE Stream Visualizer - Free, unlimited, local
+          Agent SSE Stream Visualizer — Virtual scrolling, 10K+ nodes
         </p>
       </div>
-      
-      <div style={{ flex: 1, display: 'flex', gap: '16px', padding: '16px' }}>
-        {/* 左侧：控制面板 */}
-        <div style={{ width: '300px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <button
-            onClick={simulateSSE}
-            disabled={status === 'running'}
-            style={{
-              padding: '12px',
-              background: status === 'running' ? '#6b7280' : '#3b82f6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: status === 'running' ? 'not-allowed' : 'pointer',
-              fontSize: '16px',
-            }}
-          >
-            {status === 'running' ? 'Running...' : 'Simulate Agent Run'}
-          </button>
-          
-          <div style={{ padding: '16px', background: '#242442', borderRadius: '8px', color: '#eaeaea' }}>
-            <h3 style={{ marginBottom: '8px' }}>Features</h3>
-            <ul style={{ paddingLeft: '20px', fontSize: '14px', lineHeight: '1.8' }}>
-              <li>SSE stream visualization</li>
-              <li>Dark/Light theme</li>
-              <li>Connection status</li>
-              <li>Tool call display</li>
-              <li>Zero dependencies</li>
+
+      <div style={{ flex: 1, display: 'flex', gap: '16px', padding: '16px', minHeight: 0 }}>
+        {/* Control panel */}
+        <div style={{ width: '280px', display: 'flex', flexDirection: 'column', gap: '12px', flexShrink: 0 }}>
+          <div style={{ padding: '12px', background: '#242442', borderRadius: '8px', color: '#eaeaea' }}>
+            <label style={{ fontSize: '13px', opacity: 0.7, display: 'block', marginBottom: '4px' }}>Event Count</label>
+            <input
+              type="range"
+              min={100}
+              max={10000}
+              step={100}
+              value={eventCount}
+              onChange={e => setEventCount(Number(e.target.value))}
+              disabled={running}
+              style={{ width: '100%' }}
+            />
+            <div style={{ textAlign: 'center', fontSize: '18px', fontWeight: 600, marginTop: '4px' }}>
+              {eventCount.toLocaleString()}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={running ? stopStream : startStream}
+              style={{
+                flex: 1,
+                padding: '10px',
+                background: running ? '#ef4444' : '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 500,
+              }}
+            >
+              {running ? 'Stop' : 'Start'}
+            </button>
+            <button
+              onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+              style={{
+                padding: '10px 14px',
+                background: '#242442',
+                color: '#eaeaea',
+                border: '1px solid #3d3d5c',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+              }}
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
+          </div>
+
+          <div style={{ padding: '12px', background: '#242442', borderRadius: '8px', color: '#eaeaea', fontSize: '13px', lineHeight: 1.6 }}>
+            <div style={{ fontWeight: 600, marginBottom: '6px' }}>Features</div>
+            <ul style={{ paddingLeft: '18px', margin: 0 }}>
+              <li>Virtual scrolling (10K+ nodes)</li>
+              <li>rAF message batching</li>
+              <li>Stable event keys</li>
+              <li>Configurable maxEvents</li>
+              <li>Markdown rendering</li>
             </ul>
           </div>
 
-          <div style={{ padding: '16px', background: '#242442', borderRadius: '8px', color: '#eaeaea' }}>
-            <h3 style={{ marginBottom: '8px' }}>Usage</h3>
-            <pre style={{ fontSize: '12px', overflow: 'auto', background: '#1a1a2e', padding: '12px', borderRadius: '4px' }}>
-{`import { AgentFlow } from 'agent-sse-flow'
-
-<AgentFlow 
-  url="http://localhost:8080/sse"
+          <div style={{ padding: '12px', background: '#242442', borderRadius: '8px', color: '#eaeaea' }}>
+            <div style={{ fontWeight: 600, marginBottom: '6px', fontSize: '13px' }}>Usage</div>
+            <pre style={{ fontSize: '11px', overflow: 'auto', background: '#1a1a2e', padding: '10px', borderRadius: '4px', margin: 0 }}>
+{`<AgentFlow
+  url="/api/sse"
   theme="dark"
+  maxEvents={10000}
 />`}
             </pre>
           </div>
         </div>
 
-        {/* 右侧：组件预览 */}
-        <div style={{ flex: 1, border: '1px solid #2d2d44', borderRadius: '8px', overflow: 'hidden' }}>
-          <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* 模拟 AgentFlow 组件 */}
-            <div className="agent-flow agent-flow--dark" style={{ height: '100%' }}>
+        {/* AgentFlow component */}
+        <div style={{ flex: 1, border: '1px solid #2d2d44', borderRadius: '8px', overflow: 'hidden', minHeight: 0 }}>
+          {sseUrl ? (
+            <AgentFlow
+              key={sseUrl}
+              url={sseUrl}
+              theme={theme}
+              maxEvents={10_000}
+            />
+          ) : (
+            <div className={`agent-flow agent-flow--${theme}`} style={{ height: '100%' }}>
               <div className="agent-flow__header">
                 <span className="agent-flow__status">
-                  <span className={`agent-flow__status-dot agent-flow__status-dot--${status}`} />
-                  {status}
+                  <span className="agent-flow__status-dot agent-flow__status-dot--disconnected" />
+                  disconnected
                 </span>
               </div>
               <div className="agent-flow__events">
-                {events.map((event, index) => (
-                  <div key={index} className={`agent-flow__event agent-flow__event--${event.type}`}>
-                    <span className="agent-flow__event-icon">
-                      {event.type === 'start' && '▶️'}
-                      {event.type === 'thinking' && '💭'}
-                      {event.type === 'tool_call' && '🔧'}
-                      {event.type === 'tool_result' && '✅'}
-                      {event.type === 'message' && '💬'}
-                      {event.type === 'end' && '🏁'}
-                    </span>
-                    <div className="agent-flow__event-content">
-                      <span className="agent-flow__event-type">{event.type}</span>
-                      {event.message && <p className="agent-flow__event-message">{event.message}</p>}
-                      {event.tool && (
-                        <div className="agent-flow__event-tool">
-                          <span className="agent-flow__tool-name">{event.tool}</span>
-                          {event.args && (
-                            <pre className="agent-flow__tool-args">{JSON.stringify(event.args, null, 2)}</pre>
-                          )}
-                        </div>
-                      )}
-                      {event.result && <pre className="agent-flow__event-result">{event.result}</pre>}
-                    </div>
-                  </div>
-                ))}
-                {events.length === 0 && (
-                  <div className="agent-flow__empty">Click "Simulate Agent Run" to see the demo</div>
-                )}
+                <div className="agent-flow__empty">
+                  Set event count and click Start to stream from mock server
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
+// Performance test page: direct AgentFlow with SSE URL from query param
+function PerfTestPage({ url }: { url: string }) {
+  return (
+    <div style={{ height: '100vh' }}>
+      <AgentFlow url={url} theme="dark" maxEvents={10_000} />
+    </div>
+  )
+}
+
+const params = new URLSearchParams(window.location.search)
+const sseParam = params.get('sse')
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <Demo />
+    {sseParam ? <PerfTestPage url={sseParam} /> : <Demo />}
   </React.StrictMode>
 )

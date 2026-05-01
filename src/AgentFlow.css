@@ -107,13 +107,24 @@
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+  position: relative;
+}
+
+/* Virtual scroll viewport */
+.agent-flow__events-viewport {
+  position: relative;
+  width: 100%;
+}
+
+/* Virtual scroll row */
+.agent-flow__event-row {
+  padding-bottom: 16px;
 }
 
 /* Event Item */
 .agent-flow__event {
   display: flex;
   gap: 12px;
-  margin-bottom: 16px;
   padding: 12px;
   border-radius: 6px;
 }
@@ -179,6 +190,117 @@
   word-wrap: break-word;
 }
 
+/* Markdown Content */
+.agent-flow__markdown {
+  margin-top: 8px;
+  word-wrap: break-word;
+}
+
+.agent-flow__markdown h1,
+.agent-flow__markdown h2,
+.agent-flow__markdown h3,
+.agent-flow__markdown h4 {
+  margin: 12px 0 6px;
+  font-weight: 600;
+}
+
+.agent-flow__markdown h1 { font-size: 1.3em; }
+.agent-flow__markdown h2 { font-size: 1.15em; }
+.agent-flow__markdown h3 { font-size: 1.05em; }
+
+.agent-flow__markdown p {
+  margin: 6px 0;
+}
+
+.agent-flow__markdown ul,
+.agent-flow__markdown ol {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+
+.agent-flow__markdown li {
+  margin: 2px 0;
+}
+
+.agent-flow__markdown code {
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+.agent-flow--dark .agent-flow__markdown code {
+  background: #1a1a2e;
+  color: #a5b4fc;
+}
+
+.agent-flow--light .agent-flow__markdown code {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+
+.agent-flow__markdown pre {
+  margin: 8px 0;
+  padding: 10px;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 12px;
+}
+
+.agent-flow__markdown pre code {
+  padding: 0;
+  background: none;
+  color: inherit;
+}
+
+.agent-flow--dark .agent-flow__markdown pre {
+  background: #1a1a2e;
+  color: #a5b4fc;
+}
+
+.agent-flow--light .agent-flow__markdown pre {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+
+.agent-flow__markdown blockquote {
+  margin: 8px 0;
+  padding: 4px 12px;
+  border-left: 3px solid #3b82f6;
+  opacity: 0.85;
+}
+
+.agent-flow__markdown table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.agent-flow__markdown th,
+.agent-flow__markdown td {
+  padding: 4px 10px;
+  border: 1px solid;
+}
+
+.agent-flow--dark .agent-flow__markdown th,
+.agent-flow--dark .agent-flow__markdown td {
+  border-color: #3d3d5c;
+}
+
+.agent-flow--light .agent-flow__markdown th,
+.agent-flow--light .agent-flow__markdown td {
+  border-color: #d1d5db;
+}
+
+.agent-flow__markdown a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.agent-flow__markdown a:hover {
+  text-decoration: underline;
+}
+
 /* Tool Section */
 .agent-flow__event-tool {
   margin-top: 8px;
@@ -202,8 +324,7 @@
   color: #1e40af;
 }
 
-.agent-flow__tool-args,
-.agent-flow__event-result {
+.agent-flow__tool-args {
   margin: 8px 0 0;
   padding: 8px;
   border-radius: 4px;

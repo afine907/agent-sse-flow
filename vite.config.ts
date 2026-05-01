@@ -11,11 +11,12 @@ export default defineConfig({
       fileName: (format) => `agent-sse-flow.${format === 'es' ? 'es' : 'cjs'}.js`,
     },
     rollupOptions: {
-      external: ['react', 'react-dom'],
+      external: ['react', 'react-dom', 'react-markdown'],
       output: {
         globals: {
           react: 'React',
           'react-dom': 'ReactDOM',
+          'react-markdown': 'ReactMarkdown',
         },
       },
     },
