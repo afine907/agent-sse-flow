@@ -42,16 +42,18 @@ Please be respectful and inclusive. We follow the [Contributor Covenant](https:/
 git clone https://github.com/your-username/agent-sse-flow.git
 cd agent-sse-flow
 
-# Install dependencies
-npm install
+# Install dependencies (pnpm required)
+pnpm install
 
 # Start development
-npm run dev           # Frontend dev server
-npm run mock-server   # Mock SSE server
+pnpm dev              # Frontend dev server (port 5173)
+pnpm mock-server      # Mock SSE server for testing
 
 # Build and test
-npm run build
-node test-e2e.js
+pnpm build            # Type-check + build library
+pnpm type-check       # TypeScript validation
+pnpm test             # Run unit tests (vitest)
+pnpm perf-test        # Run performance tests (Playwright)
 ```
 
 ## Coding Standards
@@ -69,13 +71,21 @@ node test-e2e.js
 ```
 agent-sse-flow/
 ├── src/
-│   ├── core/           # Core engine (SSE, State, Tree, Renderer)
-│   ├── adapters/       # Framework adapters (React)
-│   ├── components/     # UI components
-│   ├── types/          # TypeScript definitions
-│   └── mock-server/    # Mock SSE server
-├── dist/               # Build output
-└── README.md           # Project documentation
+│   ├── index.ts          # Library entry - exports AgentFlow, AgentFlowProps, FlowEvent
+│   ├── AgentFlow.tsx     # Main component (~200 lines) - virtual scrolling + layout
+│   ├── EventRow.tsx      # EventRow and TimelineRow components
+│   ├── useSSE.ts         # SSE connection, rAF batching, incremental stats hook
+│   ├── types.ts          # TypeScript interfaces (AgentFlowProps, FlowEvent)
+│   ├── utils.ts          # formatTime, copyToClipboard, icon/color constants
+│   ├── AgentFlow.css     # Styles - dark/light themes, BEM naming
+│   └── main.tsx          # Dev-only demo page with mock events
+├── tests/                # Unit and performance tests
+│   ├── AgentFlow.test.tsx
+│   ├── EventRow.test.tsx
+│   └── perf.spec.ts
+├── examples/             # Integration examples (FastAPI, Express, Next.js, etc.)
+├── dist/                 # Build output (ESM, CJS, types, CSS)
+└── README.md            # Project documentation
 ```
 
 ## Commit Message Format

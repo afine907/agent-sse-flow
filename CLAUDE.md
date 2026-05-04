@@ -17,23 +17,27 @@ pnpm lint             # ESLint for src/
 
 ## Architecture
 
-The codebase is 4 source files in `src/`:
+The codebase is 8 source files in `src/`:
 
 ```
 src/
 ├── index.ts          # Library entry - exports AgentFlow, AgentFlowProps, FlowEvent
-├── AgentFlow.tsx     # Main component (~149 lines) - SSE connection + event rendering
+├── AgentFlow.tsx     # Main component (~200 lines) - virtual scrolling + layout
+├── EventRow.tsx      # EventRow and TimelineRow components
+├── useSSE.ts         # SSE connection, rAF batching, incremental stats hook
+├── types.ts          # TypeScript interfaces (AgentFlowProps, FlowEvent)
+├── utils.ts          # formatTime, copyToClipboard, icon/color constants
 ├── AgentFlow.css     # Styles - dark/light themes, BEM naming (.agent-flow--dark)
 └── main.tsx          # Dev-only demo page with mock events
 ```
 
-**Data flow:** SSE endpoint → native `EventSource` → JSON parse → React `useState` → render event list.
+**Data flow:** SSE endpoint → native `EventSource` → JSON parse → React `useState` → render event list via @tanstack/react-virtual.
 
 **Event types:** `start`, `thinking`, `tool_call`, `tool_result`, `message`, `error`, `end`
 
 **Exported API:**
-- `AgentFlow` component with props: `url`, `theme`, `autoConnect`, `onError`, `onStatusChange`
-- `FlowEvent` interface: `type`, `message`, `tool`, `args`, `result`, `timestamp`
+- `AgentFlow` component with props: `url`, `theme`, `autoConnect`, `maxEvents`, `onError`, `onStatusChange`
+- `FlowEvent` interface: `type`, `message`, `tool`, `args`, `result`, `timestamp`, `agentName?`, `agentColor?`, `cost?`, `tokens?`, `duration?`
 - `AgentFlowProps` interface
 
 **Build outputs** (dual ESM/CJS via Vite library mode):
@@ -52,5 +56,5 @@ src/
 
 ## Notes
 
-- No test files exist despite vitest being configured. The `test` script is defined but has nothing to run.
-- CI (`.github/workflows/ci.yml`) runs `type-check` and `build` only.
+- Tests exist in `tests/` directory (vitest + Playwright). Run `pnpm test` for unit tests, `pnpm perf-test` for performance tests.
+- CI (`.github/workflows/ci.yml`) runs `type-check`, `build`, and unit tests.

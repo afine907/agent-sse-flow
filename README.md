@@ -50,6 +50,7 @@ function App() {
 | `url` | `string` | required | SSE endpoint URL |
 | `theme` | `'light' \| 'dark'` | `'dark'` | Color theme |
 | `autoConnect` | `boolean` | `true` | Auto connect on mount |
+| `maxEvents` | `number` | `100000` | Maximum events to display |
 | `onError` | `(error: Error) => void` | - | Error callback |
 | `onStatusChange` | `(status: string) => void` | - | Connection status callback |
 
@@ -58,25 +59,28 @@ function App() {
 Expects JSON events with the following structure:
 
 ```json
-{"type": "start", "message": "Agent started"}
+{"type": "start", "message": "Agent started", "agentName": "agent-1", "agentColor": "#3b82f6"}
 {"type": "thinking", "message": "Analyzing request..."}
-{"type": "tool_call", "tool": "read_file", "args": {"path": "src/index.ts"}}
-{"type": "tool_result", "result": "file content..."}
-{"type": "message", "message": "Here's what I found..."}
-{"type": "end", "message": "Done"}
+{"type": "tool_call", "tool": "read_file", "args": {"path": "src/index.ts"}, "agentName": "agent-1"}
+{"type": "tool_result", "result": "file content...", "duration": 125}
+{"type": "message", "message": "Here's what I found...", "cost": 0.002, "tokens": 150}
+{"type": "error", "message": "Something went wrong"}
+{"type": "end", "message": "Done", "cost": 0.015, "tokens": 1200, "duration": 3500}
 ```
 
 ### Event Types
 
 | Type | Description | Fields |
 |------|-------------|--------|
-| `start` | Agent started | `message` |
-| `thinking` | Agent thinking | `message` |
-| `tool_call` | Tool invocation | `tool`, `args` |
-| `tool_result` | Tool result | `result` |
-| `message` | Text message | `message` |
+| `start` | Agent started | `message`, `agentName?`, `agentColor?` |
+| `thinking` | Agent thinking | `message`, `agentName?`, `agentColor?` |
+| `tool_call` | Tool invocation | `tool`, `args`, `agentName?`, `agentColor?`, `duration?` |
+| `tool_result` | Tool result | `result`, `duration?`, `cost?`, `tokens?` |
+| `message` | Text message | `message`, `cost?`, `tokens?`, `duration?` |
 | `error` | Error occurred | `message` |
-| `end` | Agent finished | `message` |
+| `end` | Agent finished | `message`, `cost?`, `tokens?`, `duration?` |
+
+> Fields marked with `?` are optional
 
 ## Example: LangGraph Integration
 
@@ -129,6 +133,10 @@ function App() {
 - ✅ **Error Handling** - Graceful error display
 - ✅ **TypeScript** - Full type support
 - ✅ **Minimal Dependencies** - React peer dep + 2 small libs (virtual scrolling, markdown)
+- ✅ **100K+ Events** - Virtual scrolling with incremental stats for large traces
+- ✅ **Multi-Agent** - `agentName` and `agentColor` for multi-agent systems
+- ✅ **Agent Filter** - Dropdown to filter events by agent
+- ✅ **Cost Tracking** - `cost`, `tokens`, `duration` fields for monitoring API usage
 
 ## Comparison
 

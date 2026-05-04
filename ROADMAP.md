@@ -30,66 +30,67 @@
 | GitHub Stars | 0 | 500+ |
 | NPM 周下载 | ~10 | 1000+ |
 | 文档 | 完整 | ✅ |
-| Demo 网站 | ❌ 缺失 | 必须有 |
-| 截图/GIF | ❌ 缺失 | 必须有 |
-| 示例代码 | 1 个 | 5+ |
-| 单元测试 | ❌ 缺失 | 必须有 |
+| Demo 网站 | ✅ | https://afine907.github.io/agent-sse-flow/ |
+| 截图/GIF | ✅ | 有 |
+| 示例代码 | ✅ 5+ | examples/ |
+| 单元测试 | ✅ | 19/19 passing |
 
 ---
 
-## Phase 1: 基础完善 (Week 1, 5.1-5.7)
+## Phase 1: 基础完善 (Week 1, 5.1-5.7) ✅
 
-### 1.1 Demo 网站
-- [ ] 部署 GitHub Pages (使用 demo 分支)
-- [ ] 在线演示页面
-- [ ] Mock Server 自动启动
-- [ ] 主题切换演示
-- [ ] 性能演示 (100K events)
+### 1.1 Demo 网站 ✅
+- [x] 部署 GitHub Pages (使用 demo 分支)
+- [x] 在线演示页面
+- [x] Mock Server 自动启动
+- [x] 主题切换演示
+- [x] 性能演示 (100K events)
 
-### 1.2 视觉素材
-- [ ] 组件截图 (Dark/Light)
-- [ ] GIF 动图 (实时流演示)
-- [ ] Logo 设计 (简单 SVG)
-- [ ] Social Preview Image (1200x630)
+### 1.2 视觉素材 ✅
+- [x] 组件截图 (Dark/Light)
+- [x] GIF 动图 (实时流演示)
+- [x] Logo 设计 (简单 SVG)
+- [x] Social Preview Image (1200x630)
 
-### 1.3 单元测试
-- [ ] vitest 配置
-- [ ] EventRow 组件测试
-- [ ] TimelineRow 组件测试
-- [ ] SSE 连接测试
-- [ ] 虚拟滚动测试
+### 1.3 单元测试 ✅
+- [x] vitest 配置
+- [x] EventRow 组件测试
+- [x] TimelineRow 组件测试
+- [x] SSE 连接测试
+- [x] 虚拟滚动测试
+- [x] 覆盖率 > 80%
 
-### 1.4 社区文件
-- [ ] CHANGELOG.md
-- [ ] CODE_OF_CONDUCT.md
-- [ ] Issue 模板
-- [ ] PR 模板
+### 1.4 社区文件 ✅
+- [x] CHANGELOG.md
+- [x] CODE_OF_CONDUCT.md
+- [x] Issue 模板
+- [x] PR 模板
 
 ---
 
-## Phase 2: 功能增强 (Week 2, 5.8-5.14)
+## Phase 2: 功能增强 (Week 2, 5.8-5.14) ✅
 
-### 2.1 多 Agent 层级支持
-- [ ] `agentName` 字段
-- [ ] Agent 颜色编码
-- [ ] 层级缩进显示
-- [ ] Agent 过滤
+### 2.1 多 Agent 层级支持 ✅
+- [x] `agentName` 字段
+- [x] Agent 颜色编码
+- [x] 层级缩进显示
+- [x] Agent 过滤
 
-### 2.2 成本追踪
-- [ ] `cost` 字段 (可选)
-- [ ] `tokens` 字段 (可选)
-- [ ] 累计成本显示
+### 2.2 成本追踪 ✅
+- [x] `cost` 字段 (可选)
+- [x] `tokens` 字段 (可选)
+- [x] 累计成本显示
 - [ ] 成本统计图表 (可选)
 
-### 2.3 执行时间追踪
-- [ ] `duration` 字段
-- [ ] 事件耗时显示
-- [ ] 总耗时统计
+### 2.3 执行时间追踪 ✅
+- [x] `duration` 字段
+- [x] 事件耗时显示
+- [x] 总耗时统计
 
 ### 2.4 搜索/过滤
 - [ ] 关键词搜索
-- [ ] 事件类型过滤
-- [ ] Agent 过滤
+- [x] 事件类型过滤
+- [x] Agent 过滤
 - [ ] 时间范围过滤
 
 ---

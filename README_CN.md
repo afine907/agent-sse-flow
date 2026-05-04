@@ -41,6 +41,7 @@ function App() {
 | `url` | `string` | 必填 | SSE 端点 URL |
 | `theme` | `'light' \| 'dark'` | `'dark'` | 颜色主题 |
 | `autoConnect` | `boolean` | `true` | 挂载时自动连接 |
+| `maxEvents` | `number` | `100000` | 最大显示事件数 |
 | `onError` | `(error: Error) => void` | - | 错误回调 |
 | `onStatusChange` | `(status: string) => void` | - | 连接状态回调 |
 
@@ -49,25 +50,28 @@ function App() {
 组件期望接收以下 JSON 格式的 SSE 事件：
 
 ```json
-{"type": "start", "message": "Agent started"}
+{"type": "start", "message": "Agent started", "agentName": "agent-1", "agentColor": "#3b82f6"}
 {"type": "thinking", "message": "Analyzing request..."}
-{"type": "tool_call", "tool": "read_file", "args": {"path": "src/index.ts"}}
-{"type": "tool_result", "result": "file content..."}
-{"type": "message", "message": "Here's what I found..."}
-{"type": "end", "message": "Done"}
+{"type": "tool_call", "tool": "read_file", "args": {"path": "src/index.ts"}, "agentName": "agent-1"}
+{"type": "tool_result", "result": "file content...", "duration": 125}
+{"type": "message", "message": "Here's what I found...", "cost": 0.002, "tokens": 150}
+{"type": "error", "message": "Something went wrong"}
+{"type": "end", "message": "Done", "cost": 0.015, "tokens": 1200, "duration": 3500}
 ```
 
 ### 事件类型
 
 | 类型 | 说明 | 字段 |
 |------|------|------|
-| `start` | Agent 启动 | `message` |
-| `thinking` | Agent 思考中 | `message` |
-| `tool_call` | 调用工具 | `tool`, `args` |
-| `tool_result` | 工具返回结果 | `result` |
-| `message` | 文本消息 | `message` |
+| `start` | Agent 启动 | `message`, `agentName?`, `agentColor?` |
+| `thinking` | Agent 思考中 | `message`, `agentName?`, `agentColor?` |
+| `tool_call` | 调用工具 | `tool`, `args`, `agentName?`, `agentColor?`, `duration?` |
+| `tool_result` | 工具返回结果 | `result`, `duration?`, `cost?`, `tokens?` |
+| `message` | 文本消息 | `message`, `cost?`, `tokens?`, `duration?` |
 | `error` | 发生错误 | `message` |
-| `end` | Agent 结束 | `message` |
+| `end` | Agent 结束 | `message`, `cost?`, `tokens?`, `duration?` |
+
+> 标记 `?` 的字段为可选字段
 
 ## 示例：LangGraph 集成
 
@@ -119,7 +123,11 @@ function App() {
 - ✅ **连接状态** - 可视化状态指示器
 - ✅ **错误处理** - 优雅的错误展示
 - ✅ **TypeScript** - 完整类型支持
-- ✅ **零依赖** - 仅需 React 作为 peer dependency
+- ✅ **轻量依赖** - React + 2 个小型库 (虚拟滚动, markdown)
+- ✅ **100K+ 事件** - 虚拟滚动支持大规模追踪
+- ✅ **多 Agent 支持** - `agentName` 和 `agentColor` 字段
+- ✅ **Agent 过滤** - 下拉菜单按 Agent 筛选
+- ✅ **成本追踪** - `cost`, `tokens`, `duration` 字段监控 API 使用
 
 ## 对比
 
