@@ -1,6 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { AgentFlow } from '../src/AgentFlow'
+
+// Mock @tanstack/react-virtual to render all items (no virtual scrolling in tests)
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count, getScrollElement }: any) => ({
+    getTotalSize: () => count * 80,
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, i) => ({
+        index: i,
+        start: i * 80,
+        size: 80,
+        end: (i + 1) * 80,
+      })),
+    measureElement: () => {},
+  }),
+}))
 
 // Mock EventSource
 class MockEventSource {
@@ -49,6 +64,7 @@ describe('AgentFlow', () => {
   })
   
   afterEach(() => {
+    cleanup()
     vi.useRealTimers()
     vi.unstubAllGlobals()
   })
@@ -79,19 +95,27 @@ describe('AgentFlow', () => {
   })
   
   it('displays events from SSE stream', async () => {
-    render(<AgentFlow url="http://localhost:8080/stream" />)
-    
-    await vi.runAllTimersAsync()
-    
+    const { container } = render(<AgentFlow url="http://localhost:8080/stream" />)
+
+    // Give the scroll container a height so virtualizer renders items
+    const eventsEl = container.querySelector('.agent-flow__events') as HTMLElement
+    if (eventsEl) {
+      Object.defineProperty(eventsEl, 'clientHeight', { value: 600, configurable: true })
+      Object.defineProperty(eventsEl, 'scrollHeight', { value: 600, configurable: true })
+    }
+
+    // Flush EventSource onopen (setTimeout 10ms)
+    await vi.advanceTimersByTimeAsync(20)
+
     // Simulate SSE message
     mockEventSource?.simulateMessage({
       type: 'start',
       message: 'Agent started',
     })
-    
-    // Trigger RAF flush
-    await vi.runAllTimersAsync()
-    
+
+    // Flush RAF (setTimeout 0) and any pending timers
+    await vi.advanceTimersByTimeAsync(50)
+
     expect(screen.getByText('Agent started')).toBeInTheDocument()
   })
   
@@ -156,14 +180,20 @@ describe('AgentFlow', () => {
   
   it('supports custom renderMessage', async () => {
     const renderMessage = (msg: string) => <span data-testid="custom">{msg.toUpperCase()}</span>
-    render(<AgentFlow url="http://localhost:8080/stream" renderMessage={renderMessage} />)
-    
-    await vi.runAllTimersAsync()
-    
+    const { container } = render(<AgentFlow url="http://localhost:8080/stream" renderMessage={renderMessage} />)
+
+    const eventsEl = container.querySelector('.agent-flow__events') as HTMLElement
+    if (eventsEl) {
+      Object.defineProperty(eventsEl, 'clientHeight', { value: 600, configurable: true })
+      Object.defineProperty(eventsEl, 'scrollHeight', { value: 600, configurable: true })
+    }
+
+    await vi.advanceTimersByTimeAsync(20)
+
     mockEventSource?.simulateMessage({ type: 'message', message: 'test' })
-    
-    await vi.runAllTimersAsync()
-    
+
+    await vi.advanceTimersByTimeAsync(50)
+
     expect(screen.getByTestId('custom')).toHaveTextContent('TEST')
   })
 })

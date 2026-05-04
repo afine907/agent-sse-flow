@@ -5,6 +5,7 @@
 [![NPM Version](https://img.shields.io/npm/v/agent-sse-flow.svg)](https://www.npmjs.com/package/agent-sse-flow)
 [![License](https://img.shields.io/npm/l/agent-sse-flow.svg)](https://github.com/afine907/agent-sse-flow/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/npm/dw/agent-sse-flow.svg)](https://www.npmjs.com/package/agent-sse-flow)
+[![CI](https://github.com/afine907/agent-sse-flow/actions/workflows/ci.yml/badge.svg)](https://github.com/afine907/agent-sse-flow/actions/workflows/ci.yml)
 
 **[🎬 Live Demo](https://afine907.github.io/agent-sse-flow/)** | **[📦 NPM](https://www.npmjs.com/package/agent-sse-flow)** | **[🐛 Issues](https://github.com/afine907/agent-sse-flow/issues)**
 
@@ -127,7 +128,7 @@ function App() {
 - ✅ **Connection Status** - Visual status indicator
 - ✅ **Error Handling** - Graceful error display
 - ✅ **TypeScript** - Full type support
-- ✅ **Zero Dependencies** - Only React peer dependency
+- ✅ **Minimal Dependencies** - React peer dep + 2 small libs (virtual scrolling, markdown)
 
 ## Comparison
 
@@ -137,7 +138,7 @@ function App() {
 | Trace limit | Unlimited | 5000/month |
 | Data location | Local | Cloud |
 | Setup | 5 minutes | Account required |
-| Dependencies | React only | LangChain ecosystem |
+| Dependencies | React + 2 small libs | LangChain ecosystem |
 
 ## License
 

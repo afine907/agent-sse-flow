@@ -12,6 +12,9 @@ Object.assign(navigator, {
   },
 })
 
+// Mock document.execCommand for clipboard fallback
+document.execCommand = vi.fn(() => true)
+
 // Mock ResizeObserver
 global.ResizeObserver = vi.fn().mockImplementation(() => ({
   observe: vi.fn(),
@@ -33,3 +36,8 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: vi.fn(),
   })),
 })
+
+// Mock requestAnimationFrame / cancelAnimationFrame for fake timers compatibility
+// Using setTimeout(cb, 0) so vi.useFakeTimers() can control RAF timing
+window.requestAnimationFrame = (cb: FrameRequestCallback) => setTimeout(cb, 0) as unknown as number
+window.cancelAnimationFrame = (id: number) => clearTimeout(id)

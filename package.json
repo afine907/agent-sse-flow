@@ -25,6 +25,7 @@
     "lint": "eslint src --ext .ts,.tsx",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
+    "build:demo": "vite build --config vite.demo.config.ts",
     "mock-server": "node src/mock-server/index.mjs",
     "perf-test": "playwright test tests/perf.spec.ts",
     "prepublishOnly": "npm run build"

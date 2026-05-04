@@ -5,7 +5,7 @@
  * Optimized for 10,000+ nodes via virtual scrolling and message batching.
  */
 
-import { useEffect, useState, useCallback, useRef, memo } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo, memo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import ReactMarkdown from 'react-markdown';
 import './AgentFlow.css';
@@ -106,7 +106,7 @@ const EventIcon = memo(function EventIcon({ type }: { type: FlowEvent['type'] })
   return <span className="agent-flow__event-icon">{EVENT_ICONS[type]}</span>;
 });
 
-const EventRow = memo(function EventRow({
+export const EventRow = memo(function EventRow({
   event,
   renderMessage,
   renderResult,
@@ -350,15 +350,19 @@ export function AgentFlow({
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
-  // Compute unique agents and stats
-  const agents = Array.from(new Set(events.map(e => e.agentName).filter(Boolean))) as string[];
-  const totalCost = events.reduce((sum, e) => sum + (e.cost || 0), 0);
-  const totalTokens = events.reduce((sum, e) => sum + (e.tokens || 0), 0);
-  
-  // Filter events by selected agent
-  const filteredEvents = selectedAgent 
-    ? events.filter(e => e.agentName === selectedAgent)
-    : events;
+  // Incremental stats — avoids O(n) scans on every render
+  const statsRef = useRef({
+    totalCost: 0,
+    totalTokens: 0,
+    agentCounts: new Map<string, number>(),
+  });
+  const [stats, setStats] = useState({ totalCost: 0, totalTokens: 0, agents: [] as string[] });
+
+  // Filter events by selected agent (memoized)
+  const filteredEvents = useMemo(
+    () => selectedAgent ? events.filter(e => e.agentName === selectedAgent) : events,
+    [events, selectedAgent],
+  );
 
   // Refs for cleanup and state tracking
   const pendingRef = useRef<FlowEvent[]>([]);
@@ -435,13 +439,43 @@ export function AgentFlow({
     // Check if component is still mounted before updating state
     if (!isMountedRef.current) return;
 
+    // Incrementally update stats from new events
+    const s = statsRef.current;
+    for (const e of pending) {
+      s.totalCost += e.cost || 0;
+      s.totalTokens += e.tokens || 0;
+      if (e.agentName) {
+        s.agentCounts.set(e.agentName, (s.agentCounts.get(e.agentName) || 0) + 1);
+      }
+    }
+
     setEvents(prev => {
       const next = [...prev, ...pending];
       // Trim to maxEvents from the front (drop oldest)
       if (next.length > maxEvents) {
+        const removed = next.slice(0, next.length - maxEvents);
+        // Subtract stats from removed events
+        for (const e of removed) {
+          s.totalCost -= e.cost || 0;
+          s.totalTokens -= e.tokens || 0;
+          if (e.agentName) {
+            const count = (s.agentCounts.get(e.agentName) || 0) - 1;
+            if (count <= 0) {
+              s.agentCounts.delete(e.agentName);
+            } else {
+              s.agentCounts.set(e.agentName, count);
+            }
+          }
+        }
         return next.slice(next.length - maxEvents);
       }
       return next;
+    });
+
+    setStats({
+      totalCost: s.totalCost,
+      totalTokens: s.totalTokens,
+      agents: Array.from(s.agentCounts.keys()),
     });
   }, [maxEvents]);
 
@@ -578,22 +612,22 @@ export function AgentFlow({
             {status}
           </span>
           <span className="agent-flow__event-count">{filteredEvents.length} events</span>
-          {totalCost > 0 && (
-            <span className="agent-flow__cost">${totalCost.toFixed(4)}</span>
+          {stats.totalCost > 0 && (
+            <span className="agent-flow__cost">${stats.totalCost.toFixed(4)}</span>
           )}
-          {totalTokens > 0 && (
-            <span className="agent-flow__tokens">{totalTokens.toLocaleString()} tokens</span>
+          {stats.totalTokens > 0 && (
+            <span className="agent-flow__tokens">{stats.totalTokens.toLocaleString()} tokens</span>
           )}
         </div>
         <div className="agent-flow__header-right">
-          {agents.length > 0 && (
+          {stats.agents.length > 0 && (
             <select 
               className="agent-flow__agent-filter"
               value={selectedAgent || ''}
               onChange={(e) => setSelectedAgent(e.target.value || null)}
             >
               <option value="">All Agents</option>
-              {agents.map(agent => (
+              {stats.agents.map((agent: string) => (
                 <option key={agent} value={agent}>{agent}</option>
               ))}
             </select>

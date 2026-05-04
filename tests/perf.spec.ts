@@ -191,7 +191,7 @@ test.describe('AgentFlow Performance', () => {
     const elapsed = Date.now() - startTime;
     const viewportHeight = await page.evaluate(() => {
       const viewport = document.querySelector('.agent-flow__events-viewport');
-      return viewport ? parseInt(viewport.style.height) : 0;
+      return viewport ? parseInt((viewport as HTMLElement).style.height) : 0;
     });
 
     // Estimate event count from viewport height (80px per event)
@@ -202,5 +202,41 @@ test.describe('AgentFlow Performance', () => {
     // Allow generous margin for cold start
     expect(elapsed).toBeLessThan(30_000);
     expect(estimatedEvents).toBeGreaterThanOrEqual(3000);
+  });
+
+  test('100K events — DOM stays bounded and memory < 200MB', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'performance.memory is Chrome-only');
+
+    await page.goto(`${MOCK_SERVER.replace('3001', '5173')}/?sse=${MOCK_SERVER}/stream?count=100000`);
+    await page.waitForSelector('.agent-flow');
+
+    // Wait for events to accumulate (100K / 50 per batch * 100ms = 200s)
+    // We'll check after 30s which gives ~15K events — enough to validate scaling
+    await page.waitForTimeout(30_000);
+
+    const stats = await page.evaluate(() => {
+      const viewportRows = document.querySelectorAll('.agent-flow__event-row');
+      const viewport = document.querySelector('.agent-flow__events-viewport');
+      const perf = performance as any;
+      const memory = perf.memory
+        ? { usedMB: perf.memory.usedJSHeapSize / (1024 * 1024) }
+        : null;
+      return {
+        viewportRows: viewportRows.length,
+        viewportHeight: viewport ? parseInt((viewport as HTMLElement).style.height) : 0,
+        memory,
+      };
+    });
+
+    console.log(`100K test stats after 30s: ${JSON.stringify(stats, null, 2)}`);
+
+    // Virtual scrolling keeps DOM bounded regardless of total events
+    expect(stats.viewportRows).toBeLessThanOrEqual(50);
+    // Viewport should reflect accumulated events
+    expect(stats.viewportHeight).toBeGreaterThan(0);
+
+    if (stats.memory) {
+      expect(stats.memory.usedMB).toBeLessThan(200);
+    }
   });
 });
