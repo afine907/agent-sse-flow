@@ -5,7 +5,26 @@
  * Free, unlimited, local.
  *
  * @package agent-sse-flow
- * @version 2.0.0
+ * @version 2.3.0
  */
 
-export { AgentFlow, type AgentFlowProps, type FlowEvent } from './AgentFlow';
+// Main component
+export { AgentFlow } from './AgentFlow';
+
+// Hooks
+export { useSSE } from './useSSE';
+
+// Sub-components
+export { EventRow, TimelineRow } from './EventRow';
+
+// Types
+export type {
+  AgentFlowProps,
+  FlowEvent,
+  Theme,
+  ViewMode,
+  EventType,
+  EventStatus,
+  SSEStats,
+  UseSSEReturn,
+} from './types';

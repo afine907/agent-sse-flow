@@ -1,10 +1,10 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, forwardRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import type { FlowEvent } from './types';
+import type { FlowEvent, EventType } from './types';
 import { formatTime, copyToClipboard, EVENT_DOT_COLORS, getSummary } from './utils';
 
 /** SVG icon paths by event type (Lucide-style, 24x24 viewBox) */
-const ICON_PATHS: Record<FlowEvent['type'], string> = {
+const ICON_PATHS: Record<EventType, string> = {
   start: 'M8 5v14l11-7z',
   thinking: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z',
   tool_call: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
@@ -14,7 +14,30 @@ const ICON_PATHS: Record<FlowEvent['type'], string> = {
   end: 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z',
 };
 
-const EventIcon = memo(function EventIcon({ type }: { type: FlowEvent['type'] }) {
+/** Reusable copy button */
+const CopyButton = memo(function CopyButton({ text, title = 'Copy' }: { text: string; title?: string }) {
+  const handleCopy = useCallback(() => {
+    copyToClipboard(text);
+  }, [text]);
+
+  return (
+    <button
+      className="agent-flow__copy-btn"
+      onClick={handleCopy}
+      title={title}
+      type="button"
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+      </svg>
+    </button>
+  );
+});
+CopyButton.displayName = 'CopyButton';
+
+/** Event icon with memoization */
+const EventIcon = memo(function EventIcon({ type }: { type: EventType }) {
   return (
     <span className="agent-flow__event-icon">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -23,30 +46,32 @@ const EventIcon = memo(function EventIcon({ type }: { type: FlowEvent['type'] })
     </span>
   );
 });
+EventIcon.displayName = 'EventIcon';
 
-export { EventIcon };
-
-export const EventRow = memo(function EventRow({
-  event,
-  renderMessage,
-  renderResult,
-  showArgs = true,
-  onToggleArgs,
-}: {
+/** Props shared by EventRow and TimelineRow */
+interface RowProps {
   event: FlowEvent;
   renderMessage?: (message: string) => React.ReactNode;
   renderResult?: (result: string) => React.ReactNode;
   showArgs?: boolean;
   onToggleArgs?: () => void;
-}) {
+}
+
+/** EventRow — list/card view */
+export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function EventRow(
+  {
+    event,
+    renderMessage,
+    renderResult,
+    showArgs = true,
+    onToggleArgs,
+  },
+  ref,
+) {
   const time = event.timestamp ? formatTime(event.timestamp) : null;
 
-  const handleCopy = useCallback((text: string) => {
-    copyToClipboard(text);
-  }, []);
-
   return (
-    <div className={`agent-flow__event agent-flow__event--${event.type}`}>
+    <div ref={ref} className={`agent-flow__event agent-flow__event--${event.type}`}>
       <EventIcon type={event.type} />
       <div className="agent-flow__event-content">
         <div className="agent-flow__event-header">
@@ -74,28 +99,14 @@ export const EventRow = memo(function EventRow({
             <div className="agent-flow__tool-header">
               <span className="agent-flow__tool-name">{event.tool}</span>
               {event.argsJson && onToggleArgs && (
-                <button
-                  className="agent-flow__tool-toggle"
-                  onClick={onToggleArgs}
-                  type="button"
-                >
+                <button className="agent-flow__tool-toggle" onClick={onToggleArgs} type="button">
                   {showArgs ? '▼' : '▶'} args
                 </button>
               )}
             </div>
             {showArgs && event.argsJson && (
               <pre className="agent-flow__tool-args">
-                <button
-                  className="agent-flow__copy-btn"
-                  onClick={() => handleCopy(event.argsJson!)}
-                  title="Copy"
-                  type="button"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                  </svg>
-                </button>
+                <CopyButton text={event.argsJson} />
                 {event.argsJson}
               </pre>
             )}
@@ -104,17 +115,7 @@ export const EventRow = memo(function EventRow({
         {event.result && (
           <div className="agent-flow__event-result">
             <div className="agent-flow__event-result-actions">
-              <button
-                className="agent-flow__copy-btn"
-                onClick={() => handleCopy(event.result!)}
-                title="Copy"
-                type="button"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                </svg>
-              </button>
+              <CopyButton text={event.result} />
             </div>
             <div className="agent-flow__event-result-content agent-flow__markdown">
               {renderResult ? renderResult(event.result) : <ReactMarkdown>{event.result}</ReactMarkdown>}
@@ -124,33 +125,30 @@ export const EventRow = memo(function EventRow({
       </div>
     </div>
   );
-});
+}));
+EventRow.displayName = 'EventRow';
 
-export const TimelineRow = memo(function TimelineRow({
-  event,
-  collapsed,
-  onToggle,
-  renderMessage,
-  renderResult,
-  showArgs = true,
-  onToggleArgs,
-}: {
-  event: FlowEvent;
+/** TimelineRow — collapsible timeline view */
+export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
   collapsed: boolean;
   onToggle: () => void;
-  renderMessage?: (message: string) => React.ReactNode;
-  renderResult?: (result: string) => React.ReactNode;
-  showArgs?: boolean;
-  onToggleArgs?: () => void;
-}) {
+}>(function TimelineRow(
+  {
+    event,
+    collapsed,
+    onToggle,
+    renderMessage,
+    renderResult,
+    showArgs = true,
+    onToggleArgs,
+  },
+  ref,
+) {
   const time = event.timestamp ? formatTime(event.timestamp) : null;
-
-  const handleCopy = useCallback((text: string) => {
-    copyToClipboard(text);
-  }, []);
 
   return (
     <div
+      ref={ref}
       className={`agent-flow__timeline-item agent-flow__timeline-item--${event.type}${collapsed ? ' agent-flow__timeline-item--collapsed' : ''}`}
       onClick={onToggle}
       role="button"
@@ -191,28 +189,14 @@ export const TimelineRow = memo(function TimelineRow({
                 <div className="agent-flow__tool-header">
                   <span className="agent-flow__tool-name">{event.tool}</span>
                   {event.argsJson && onToggleArgs && (
-                    <button
-                      className="agent-flow__tool-toggle"
-                      onClick={onToggleArgs}
-                      type="button"
-                    >
+                    <button className="agent-flow__tool-toggle" onClick={onToggleArgs} type="button">
                       {showArgs ? '▼' : '▶'} args
                     </button>
                   )}
                 </div>
                 {showArgs && event.argsJson && (
                   <pre className="agent-flow__tool-args">
-                    <button
-                      className="agent-flow__copy-btn"
-                      onClick={() => handleCopy(event.argsJson!)}
-                      title="Copy"
-                      type="button"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                      </svg>
-                    </button>
+                    <CopyButton text={event.argsJson} />
                     {event.argsJson}
                   </pre>
                 )}
@@ -221,17 +205,7 @@ export const TimelineRow = memo(function TimelineRow({
             {event.result && (
               <div className="agent-flow__event-result">
                 <div className="agent-flow__event-result-actions">
-                  <button
-                    className="agent-flow__copy-btn"
-                    onClick={() => handleCopy(event.result!)}
-                    title="Copy"
-                    type="button"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                    </svg>
-                  </button>
+                  <CopyButton text={event.result} />
                 </div>
                 <div className="agent-flow__event-result-content agent-flow__markdown">
                   {renderResult ? renderResult(event.result) : <ReactMarkdown>{event.result}</ReactMarkdown>}
@@ -243,4 +217,5 @@ export const TimelineRow = memo(function TimelineRow({
       </div>
     </div>
   );
-});
+}));
+TimelineRow.displayName = 'TimelineRow';

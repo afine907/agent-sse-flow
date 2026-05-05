@@ -1,11 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import type { FlowEvent } from './types';
+import type { FlowEvent, SSEStats } from './types';
 
-export interface SSEStats {
-  totalCost: number;
-  totalTokens: number;
-  agents: string[];
-}
+export type { SSEStats } from './types';
 
 export interface UseSSEOptions {
   url: string;
@@ -13,11 +9,26 @@ export interface UseSSEOptions {
   maxEvents: number;
   onError?: (error: Error) => void;
   onStatusChange?: (status: 'connecting' | 'connected' | 'disconnected' | 'error') => void;
+  /** Reconnect automatically on disconnect. Default: true */
+  autoReconnect?: boolean;
+  /** Max reconnect attempts. Default: 10 */
+  maxReconnectAttempts?: number;
 }
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
-export function useSSE({ url, autoConnect, maxEvents, onError, onStatusChange }: UseSSEOptions) {
+/** SSR-safe EventSource check (dynamic to allow test mocks) */
+const checkEventSourceSupport = () => typeof EventSource !== 'undefined';
+
+export function useSSE({
+  url,
+  autoConnect,
+  maxEvents,
+  onError,
+  onStatusChange,
+  autoReconnect = true,
+  maxReconnectAttempts = 10,
+}: UseSSEOptions) {
   const [events, setEvents] = useState<FlowEvent[]>([]);
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
@@ -42,12 +53,16 @@ export function useSSE({ url, autoConnect, maxEvents, onError, onStatusChange }:
   const idCounterRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
   const isMountedRef = useRef(true);
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const manualDisconnectRef = useRef(false);
 
   // Cleanup on unmount
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      manualDisconnectRef.current = true;
 
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
@@ -57,6 +72,11 @@ export function useSSE({ url, autoConnect, maxEvents, onError, onStatusChange }:
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
+      }
+
+      if (reconnectTimerRef.current !== null) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
       }
 
       pendingRef.current = [];
@@ -113,12 +133,39 @@ export function useSSE({ url, autoConnect, maxEvents, onError, onStatusChange }:
     });
   }, [maxEvents]);
 
+  // Schedule reconnect with exponential backoff
+  const scheduleReconnect = useCallback(() => {
+    if (!autoReconnect || manualDisconnectRef.current) return;
+    if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+      handleStatusChange('error');
+      onError?.(new Error(`Max reconnect attempts (${maxReconnectAttempts}) exceeded`));
+      return;
+    }
+
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+    reconnectAttemptsRef.current++;
+
+    reconnectTimerRef.current = setTimeout(() => {
+      reconnectTimerRef.current = null;
+      if (isMountedRef.current && !manualDisconnectRef.current) {
+        connect();
+      }
+    }, delay);
+  }, [autoReconnect, maxReconnectAttempts, handleStatusChange, onError]);
+
   const connect = useCallback(() => {
+    if (!checkEventSourceSupport()) {
+      handleStatusChange('error');
+      onError?.(new Error('EventSource is not supported in this environment'));
+      return () => {};
+    }
+
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
     }
 
+    manualDisconnectRef.current = false;
     handleStatusChange('connecting');
 
     const eventSource = new EventSource(url);
@@ -126,6 +173,7 @@ export function useSSE({ url, autoConnect, maxEvents, onError, onStatusChange }:
 
     eventSource.onopen = () => {
       if (isMountedRef.current) {
+        reconnectAttemptsRef.current = 0;
         handleStatusChange('connected');
       }
     };
@@ -174,9 +222,13 @@ export function useSSE({ url, autoConnect, maxEvents, onError, onStatusChange }:
       onError?.(error);
       eventSource.close();
       eventSourceRef.current = null;
+
+      // Auto-reconnect with backoff
+      scheduleReconnect();
     };
 
     return () => {
+      manualDisconnectRef.current = true;
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
@@ -190,7 +242,22 @@ export function useSSE({ url, autoConnect, maxEvents, onError, onStatusChange }:
         handleStatusChange('disconnected');
       }
     };
-  }, [url, handleStatusChange, onError, flushPending]);
+  }, [url, handleStatusChange, onError, flushPending, scheduleReconnect]);
+
+  const disconnect = useCallback(() => {
+    manualDisconnectRef.current = true;
+    if (reconnectTimerRef.current !== null) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    if (isMountedRef.current) {
+      handleStatusChange('disconnected');
+    }
+  }, [handleStatusChange]);
 
   useEffect(() => {
     if (autoConnect) {
@@ -206,5 +273,8 @@ export function useSSE({ url, autoConnect, maxEvents, onError, onStatusChange }:
     selectedAgent,
     setSelectedAgent,
     connect,
+    disconnect,
+    /** Whether EventSource is supported in this environment */
+    isSupported: checkEventSourceSupport(),
   };
 }

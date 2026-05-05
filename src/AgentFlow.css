@@ -842,3 +842,105 @@
 .agent-flow__timeline-item--message .agent-flow__timeline-label { color: #06b6d4; }
 .agent-flow__timeline-item--error .agent-flow__timeline-label { color: #ef4444; }
 .agent-flow__timeline-item--end .agent-flow__timeline-label { color: #10b981; }
+
+/* =============================================
+   Search Bar
+   ============================================= */
+
+.agent-flow__search-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius-sm);
+  cursor: pointer;
+  color: var(--af-text-secondary);
+  background: transparent;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.agent-flow__search-toggle:hover {
+  color: var(--af-text);
+  border-color: var(--af-text-tertiary);
+  background: var(--af-bg-hover);
+}
+
+.agent-flow__search-toggle--active {
+  color: var(--af-accent);
+  border-color: var(--af-accent);
+  background: var(--af-accent-muted);
+}
+
+.agent-flow__search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--af-border);
+  background: var(--af-bg-raised);
+  flex-shrink: 0;
+}
+
+.agent-flow__search-bar svg {
+  flex-shrink: 0;
+  color: var(--af-text-tertiary);
+}
+
+.agent-flow__search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--af-text);
+  font-family: var(--af-font);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.agent-flow__search-input::placeholder {
+  color: var(--af-text-tertiary);
+}
+
+.agent-flow__search-count {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--af-text-tertiary);
+  font-family: var(--af-mono);
+  padding: 1px 6px;
+  background: var(--af-accent-muted);
+  border-radius: 4px;
+}
+
+.agent-flow__search-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--af-text-tertiary);
+  background: transparent;
+  font-size: 12px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.agent-flow__search-close:hover {
+  color: var(--af-text);
+  background: var(--af-bg-hover);
+}
+
+/* =============================================
+   Unsupported State (SSR fallback)
+   ============================================= */
+
+.agent-flow--unsupported {
+  opacity: 0.8;
+}
+
+.agent-flow--unsupported .agent-flow__empty {
+  line-height: 1.8;
+}

@@ -1,6 +1,6 @@
 {
   "name": "agent-sse-flow",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "packageManager": "pnpm@10.8.1",
   "description": "Agent SSE Stream Visualizer - A lightweight React component. Free, unlimited, local.",
   "main": "dist/agent-sse-flow.cjs.js",
