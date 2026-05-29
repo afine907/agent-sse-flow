@@ -77,9 +77,13 @@ export function AgentFlow({
   const [timeFilterOpen, setTimeFilterOpen] = useState(false);
   const [enabledTypes, setEnabledTypes] = useState<Set<EventType>>(new Set(ALL_EVENT_TYPES));
   const [showStats, setShowStats] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [highlightedEventId, setHighlightedEventId] = useState<number | null>(null);
+  const [currentErrorNavIndex, setCurrentErrorNavIndex] = useState(0);
   const parentRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Search filter
   const searchFilteredEvents = useMemo(() => {
@@ -121,6 +125,34 @@ export function AgentFlow({
     return counts;
   }, [filteredEvents]);
 
+  // Track error event indices for jump navigation
+  const errorIndices = useMemo(() => {
+    const indices: number[] = [];
+    for (let i = 0; i < typeFilteredEvents.length; i++) {
+      if (typeFilteredEvents[i].type === 'error') {
+        indices.push(i);
+      }
+    }
+    return indices;
+  }, [typeFilteredEvents]);
+
+  // Jump to next error event
+  const jumpToNextError = useCallback(() => {
+    if (errorIndices.length === 0) return;
+    const nextIdx = currentErrorNavIndex % errorIndices.length;
+    const eventIndex = errorIndices[nextIdx];
+    virtualizer.scrollToIndex(eventIndex, { align: 'center' });
+    const eventId = typeFilteredEvents[eventIndex]?.id;
+    if (eventId !== undefined) {
+      setHighlightedEventId(eventId);
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+      highlightTimerRef.current = setTimeout(() => setHighlightedEventId(null), 2000);
+    }
+    setCurrentErrorNavIndex(prev => prev + 1);
+  }, [errorIndices, currentErrorNavIndex, virtualizer, typeFilteredEvents]);
+
   // Toggle event type filter
   const toggleEventType = useCallback((type: EventType) => {
     setEnabledTypes(prev => {
@@ -131,15 +163,21 @@ export function AgentFlow({
     });
   }, []);
 
-  // Keyboard shortcut for search; also handle Escape for modal
+  // Keyboard shortcut for search, help, and Escape handling
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setSearchOpen(prev => !prev);
       }
+      if (e.key === '?' && !searchOpen) {
+        e.preventDefault();
+        setShowHelp(prev => !prev);
+      }
       if (e.key === 'Escape') {
-        if (selectedEvent) {
+        if (showHelp) {
+          setShowHelp(false);
+        } else if (selectedEvent) {
           setSelectedEvent(null);
         } else if (searchOpen) {
           setSearchOpen(false);
@@ -149,7 +187,7 @@ export function AgentFlow({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [searchOpen, selectedEvent]);
+  }, [searchOpen, selectedEvent, showHelp]);
 
   // Focus search input when opened
   useEffect(() => {
@@ -363,6 +401,31 @@ export function AgentFlow({
               </div>
             )}
           </div>
+
+          {/* Help toggle */}
+          <button
+            className={`agent-flow__header-btn${showHelp ? ' agent-flow__header-btn--active' : ''}`}
+            onClick={() => setShowHelp(prev => !prev)}
+            title="Keyboard shortcuts (?)"
+            type="button"
+          >
+            ?
+          </button>
+
+          {/* Jump to Next Error */}
+          {errorIndices.length > 0 && (
+            <button
+              className="agent-flow__jump-error-btn"
+              onClick={jumpToNextError}
+              title={`Jump to next error (${errorIndices.length} errors, ${currentErrorNavIndex % errorIndices.length + 1}/${errorIndices.length})`}
+              type="button"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              {errorIndices.length}
+            </button>
+          )}
 
           {/* Search toggle */}
           <button
@@ -633,6 +696,48 @@ export function AgentFlow({
             <pre className="agent-flow__modal-content">
               {JSON.stringify(selectedEvent, null, 2)}
             </pre>
+          </div>
+        </div>
+      )}
+
+      {/* Keyboard Shortcuts Help Overlay */}
+      {showHelp && (
+        <div className="agent-flow__modal-overlay" onClick={() => setShowHelp(false)}>
+          <div className="agent-flow__help-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="agent-flow__modal-header">
+              <span className="agent-flow__modal-title">Keyboard Shortcuts</span>
+              <button
+                className="agent-flow__modal-close"
+                onClick={() => setShowHelp(false)}
+                title="Close"
+                type="button"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="agent-flow__help-content">
+              <div className="agent-flow__help-row">
+                <span className="agent-flow__help-keys">
+                  <kbd>Ctrl</kbd><span>+</span><kbd>K</kbd>
+                </span>
+                <span className="agent-flow__help-desc">Search events</span>
+              </div>
+              <div className="agent-flow__help-row">
+                <span className="agent-flow__help-keys">
+                  <kbd>?</kbd>
+                </span>
+                <span className="agent-flow__help-desc">Toggle this help panel</span>
+              </div>
+              <div className="agent-flow__help-row">
+                <span className="agent-flow__help-keys">
+                  <kbd>Esc</kbd>
+                </span>
+                <span className="agent-flow__help-desc">Close panels</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
