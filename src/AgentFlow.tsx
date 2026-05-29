@@ -33,9 +33,8 @@ import { useSSE } from './useSSE';
 import { EventRow, TimelineRow } from './EventRow';
 import { exportToJSON, exportToCSV, copyToClipboard, EVENT_DOT_COLORS } from './utils';
 
-export type { AgentFlowProps } from './types';
-export { EventRow, TimelineRow } from './EventRow';
-export { useSSE } from './useSSE';
+// Note: AgentFlowProps, EventRow, TimelineRow, useSSE are exported from index.ts
+// This avoids duplicate re-exports that could interfere with tree-shaking
 
 /** All event types for filter checkboxes */
 const ALL_EVENT_TYPES: EventType[] = ['start', 'thinking', 'tool_call', 'tool_result', 'message', 'error', 'end'];
