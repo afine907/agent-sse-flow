@@ -2068,6 +2068,36 @@
   background: var(--af-accent-muted);
 }
 
+/* Drag handle for agent reordering */
+.agent-flow__drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--af-text-tertiary);
+  cursor: grab;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+}
+
+.agent-flow__drag-handle:hover {
+  opacity: 0.8;
+}
+
+/* Drag-over visual feedback */
+.agent-flow__agent-filter-option--drag-over {
+  border-top: 2px solid var(--af-accent);
+  background: var(--af-accent-muted);
+}
+
+/* Dragging state */
+.agent-flow__agent-dragging {
+  opacity: 0.5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
 /* =============================================
    Resize Handle
    ============================================= */
@@ -2472,4 +2502,339 @@
 .agent-flow__waterfall-bar-duration {
   opacity: 0.8;
   font-size: 9px;
+}
+
+/* =============================================
+   Mobile Responsive Layout (< 768px)
+   ============================================= */
+
+@media (max-width: 767px) {
+  .agent-flow {
+    font-size: 12.5px;
+    border-radius: 0;
+    --af-radius: 6px;
+    --af-radius-sm: 4px;
+  }
+
+  /* Stack header vertically */
+  .agent-flow__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .agent-flow__header-left {
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .agent-flow__header-right {
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  /* Touch-friendly: larger tap targets (min 44px) */
+  .agent-flow__header-btn,
+  .agent-flow__search-toggle,
+  .agent-flow__export-toggle,
+  .agent-flow__agent-filter-toggle,
+  .agent-flow__connect-btn,
+  .agent-flow__jump-error-btn {
+    min-width: 44px;
+    min-height: 44px;
+    height: auto;
+    padding: 8px 10px;
+  }
+
+  .agent-flow__bookmark-btn {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+    opacity: 0.7;
+  }
+
+  .agent-flow__copy-btn {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+    opacity: 0.6;
+  }
+
+  .agent-flow__search-close {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .agent-flow__tool-toggle {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 8px;
+  }
+
+  .agent-flow__detail-btn {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+    opacity: 0.7;
+  }
+
+  .agent-flow__modal-copy,
+  .agent-flow__modal-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Reduced font sizes */
+  .agent-flow__status {
+    font-size: 10.5px;
+  }
+
+  .agent-flow__event-count {
+    font-size: 10.5px;
+  }
+
+  .agent-flow__event-type {
+    font-size: 10px;
+  }
+
+  .agent-flow__event-time {
+    font-size: 10px;
+  }
+
+  .agent-flow__event-message {
+    font-size: 12px;
+  }
+
+  .agent-flow__cost,
+  .agent-flow__tokens {
+    font-size: 10px;
+  }
+
+  .agent-flow__type-label {
+    font-size: 10px;
+  }
+
+  .agent-flow__stats-label {
+    font-size: 10px;
+  }
+
+  .agent-flow__stats-value {
+    font-size: 11px;
+  }
+
+  /* Full-width event cards */
+  .agent-flow__event {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .agent-flow__events {
+    padding: 8px;
+  }
+
+  /* Hide less-essential elements on mobile */
+  .agent-flow__bookmark-count {
+    display: none;
+  }
+
+  .agent-flow__duration-bar {
+    display: none;
+  }
+
+  .agent-flow__agent-badge-wrapper {
+    display: none;
+  }
+
+  .agent-flow__status-detail-label {
+    width: 60px;
+  }
+
+  /* Search bar adjustments */
+  .agent-flow__search-bar {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .agent-flow__search-input {
+    font-size: 14px; /* prevent iOS zoom on focus */
+  }
+
+  /* Time filter adjustments */
+  .agent-flow__time-filter {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 10px;
+  }
+
+  .agent-flow__time-input {
+    flex: 1;
+    min-width: 120px;
+    font-size: 14px; /* prevent iOS zoom */
+  }
+
+  /* Type filter wrapping */
+  .agent-flow__type-filter {
+    padding: 6px 10px;
+    gap: 2px 8px;
+  }
+
+  /* Stats panel */
+  .agent-flow__stats {
+    padding: 6px 10px;
+  }
+
+  /* Modals: use more screen space */
+  .agent-flow__modal {
+    width: 96%;
+    max-height: 90vh;
+  }
+
+  .agent-flow__help-modal {
+    width: 96%;
+  }
+
+  .agent-flow__modal-content {
+    font-size: 11px;
+  }
+
+  /* Scroll controls: larger touch targets */
+  .agent-flow__auto-scroll-btn,
+  .agent-flow__scroll-bottom {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Group header */
+  .agent-flow__group-header {
+    padding: 10px 12px;
+  }
+
+  /* Timeline adjustments */
+  .agent-flow--timeline .agent-flow__events {
+    padding: 6px 8px 6px 2px;
+  }
+
+  .agent-flow__timeline-track {
+    width: 28px;
+  }
+
+  .agent-flow__timeline-body {
+    padding: 4px 8px 6px 0;
+  }
+
+  .agent-flow__timeline-summary {
+    font-size: 11.5px;
+  }
+
+  /* Context menu: full-width on mobile */
+  .agent-flow__context-menu {
+    left: 8px !important;
+    right: 8px;
+    min-width: auto;
+    width: calc(100vw - 16px);
+  }
+
+  .agent-flow__context-menu-item {
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+
+  /* Agent filter dropdown */
+  .agent-flow__agent-filter-dropdown {
+    min-width: 140px;
+  }
+
+  .agent-flow__agent-filter-option {
+    padding: 10px 8px;
+  }
+
+  /* Export dropdown */
+  .agent-flow__export-dropdown {
+    min-width: 120px;
+  }
+
+  .agent-flow__export-option {
+    padding: 12px;
+    font-size: 14px;
+  }
+
+  /* Status dropdown */
+  .agent-flow__status-dropdown {
+    min-width: 220px;
+    left: -8px;
+  }
+}
+
+/* =============================================
+   Swipe-to-dismiss gesture indicator
+   ============================================= */
+
+.agent-flow__swipe-hint {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 1;
+}
+
+.agent-flow__swipe-hint--left {
+  left: 0;
+  background: linear-gradient(to right, rgba(239, 68, 68, 0.3), transparent);
+}
+
+.agent-flow__swipe-hint--right {
+  right: 0;
+  background: linear-gradient(to left, rgba(59, 130, 246, 0.3), transparent);
+}
+
+.agent-flow__event-row--swiping {
+  transition: transform 0.1s ease-out;
+}
+
+/* Touch feedback */
+@media (hover: none) and (pointer: coarse) {
+  .agent-flow__header-btn:active,
+  .agent-flow__search-toggle:active,
+  .agent-flow__export-toggle:active,
+  .agent-flow__agent-filter-toggle:active,
+  .agent-flow__connect-btn:active,
+  .agent-flow__bookmark-btn:active,
+  .agent-flow__copy-btn:active,
+  .agent-flow__context-menu-item:active,
+  .agent-flow__export-option:active {
+    opacity: 0.7;
+    transform: scale(0.97);
+  }
+
+  /* Disable hover effects on touch devices */
+  .agent-flow__event:hover {
+    border-color: transparent;
+  }
+
+  .agent-flow--dark .agent-flow__event:hover {
+    background: var(--af-surface);
+  }
+
+  .agent-flow--light .agent-flow__event:hover {
+    background: var(--af-surface);
+  }
+
+  /* Show buttons by default on touch (no hover to reveal) */
+  .agent-flow__bookmark-btn,
+  .agent-flow__copy-btn,
+  .agent-flow__detail-btn {
+    opacity: 0.5;
+  }
 }
