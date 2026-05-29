@@ -1653,6 +1653,82 @@
 }
 
 /* =============================================
+   Pin Button
+   ============================================= */
+
+.agent-flow__pin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--af-text-tertiary);
+  background: transparent;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.agent-flow__event:hover .agent-flow__pin-btn,
+.agent-flow__timeline-item:hover .agent-flow__pin-btn {
+  opacity: 0.7;
+}
+
+.agent-flow__pin-btn:hover {
+  opacity: 1 !important;
+  color: #6e8bfa;
+  background: rgba(110, 139, 250, 0.1);
+}
+
+.agent-flow__pin-btn--active {
+  color: #6e8bfa;
+  opacity: 0.8 !important;
+}
+
+.agent-flow__pin-btn--active:hover {
+  opacity: 1 !important;
+}
+
+/* Pinned event highlight */
+.agent-flow__event--pinned {
+  border-left: 2.5px solid #6e8bfa !important;
+}
+
+.agent-flow--dark .agent-flow__event--pinned {
+  background: rgba(110, 139, 250, 0.05);
+}
+
+.agent-flow--light .agent-flow__event--pinned {
+  background: rgba(79, 110, 247, 0.04);
+}
+
+/* Pinned separator */
+.agent-flow__pinned-separator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px;
+}
+
+.agent-flow__pinned-separator-line {
+  flex: 1;
+  height: 1px;
+  background: var(--af-border);
+}
+
+.agent-flow__pinned-separator-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--af-text-tertiary);
+  flex-shrink: 0;
+}
+
+/* =============================================
    Clickable Event Row
    ============================================= */
 
@@ -2200,6 +2276,10 @@
 }
 
 .agent-flow--compact .agent-flow__bookmark-btn {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__pin-btn {
   display: none;
 }
 
