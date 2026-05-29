@@ -40,7 +40,7 @@ describe('EventRow', () => {
     expect(screen.getByText(/"path"/)).toBeInTheDocument()
 
     // Find the args toggle button (the inner <button>, not the row container with role="button")
-    const toggleBtns = screen.getAllByRole('button', { name: /args/i })
+    const toggleBtns = screen.getAllByRole('button', { name: /arguments/i })
     const toggleBtn = toggleBtns.find(el => el.tagName === 'BUTTON')!
     expect(toggleBtn).toBeInTheDocument()
   })

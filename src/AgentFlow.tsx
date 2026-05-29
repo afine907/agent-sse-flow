@@ -346,7 +346,9 @@ export function AgentFlow({
 
   // Build virtual list items (grouped or flat)
   const virtualListItems = useMemo((): VirtualListItem[] => {
-    if (!groupByAgent || viewMode === 'timeline' || viewMode === 'waterfall') return bookmarkFilteredEvents.map(e => ({ kind: 'event' as const, event: e, key: e.id }));
+    if (!groupByAgent || viewMode === 'timeline' || viewMode === 'waterfall') {
+      return bookmarkFilteredEvents.map(e => ({ kind: 'event' as const, event: e, key: e.id }));
+    }
 
     // Group events by agent name, preserving order
     const groups = new Map<string, FlowEvent[]>();
@@ -830,6 +832,8 @@ export function AgentFlow({
               onClick={() => setShowBookmarkedOnly(prev => !prev)}
               title={showBookmarkedOnly ? 'Show all events' : 'Show bookmarked only'}
               type="button"
+              aria-label={showBookmarkedOnly ? 'Show all events' : 'Show bookmarked only'}
+              aria-pressed={showBookmarkedOnly}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill={showBookmarkedOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -843,6 +847,8 @@ export function AgentFlow({
             onClick={() => setShowStats(prev => !prev)}
             title="Toggle event statistics"
             type="button"
+            aria-label="Toggle event statistics"
+            aria-pressed={showStats}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="20" x2="18" y2="10" />
@@ -857,6 +863,8 @@ export function AgentFlow({
             onClick={() => setCompact(prev => !prev)}
             title={compact ? 'Switch to normal view' : 'Switch to compact view'}
             type="button"
+            aria-label={compact ? 'Switch to normal view' : 'Switch to compact view'}
+            aria-pressed={compact}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="21" y1="10" x2="3" y2="10" />
@@ -873,6 +881,7 @@ export function AgentFlow({
             title="Clear all events"
             type="button"
             disabled={filteredEvents.length === 0}
+            aria-label="Clear all events"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="3 6 5 6 21 6" />
@@ -889,6 +898,9 @@ export function AgentFlow({
               onClick={() => setExportOpen(prev => !prev)}
               title="Export events"
               type="button"
+              aria-label="Export events"
+              aria-expanded={exportOpen}
+              aria-haspopup="menu"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
@@ -897,11 +909,13 @@ export function AgentFlow({
               </svg>
             </button>
             {exportOpen && (
-              <div className="agent-flow__export-dropdown">
+              <div className="agent-flow__export-dropdown" role="menu">
                 <button
                   className="agent-flow__export-option"
                   onClick={() => { exportToJSON(typeFilteredEvents); setExportOpen(false); }}
                   type="button"
+                  role="menuitem"
+                  aria-label="Export events as JSON"
                 >
                   Export as JSON
                 </button>
@@ -909,6 +923,8 @@ export function AgentFlow({
                   className="agent-flow__export-option"
                   onClick={() => { exportToCSV(typeFilteredEvents); setExportOpen(false); }}
                   type="button"
+                  role="menuitem"
+                  aria-label="Export events as CSV"
                 >
                   Export as CSV
                 </button>
@@ -922,6 +938,8 @@ export function AgentFlow({
             onClick={() => setShowHelp(prev => !prev)}
             title="Keyboard shortcuts (?)"
             type="button"
+            aria-label="Keyboard shortcuts"
+            aria-pressed={showHelp}
           >
             ?
           </button>
@@ -933,6 +951,7 @@ export function AgentFlow({
               onClick={jumpToNextError}
               title={`Jump to next error (${errorIndices.length} errors, ${currentErrorNavIndex % errorIndices.length + 1}/${errorIndices.length})`}
               type="button"
+              aria-label={`Jump to next error (${errorIndices.length} errors)`}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -950,6 +969,8 @@ export function AgentFlow({
             }}
             title="Search events (Ctrl+K)"
             type="button"
+            aria-label="Search events"
+            aria-pressed={searchOpen}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" />
@@ -963,6 +984,8 @@ export function AgentFlow({
             onClick={() => setTimeFilterOpen(prev => !prev)}
             title="Filter by time range"
             type="button"
+            aria-label="Filter by time range"
+            aria-pressed={timeFilterOpen || !!timeFrom || !!timeTo}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
@@ -976,6 +999,8 @@ export function AgentFlow({
             onClick={() => setRelativeTime(prev => !prev)}
             title={relativeTime ? 'Showing relative time' : 'Showing absolute time'}
             type="button"
+            aria-label={relativeTime ? 'Showing relative time' : 'Showing absolute time'}
+            aria-pressed={relativeTime}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
@@ -990,6 +1015,9 @@ export function AgentFlow({
                 className={`agent-flow__agent-filter-toggle${agentFilterOpen ? ' agent-flow__agent-filter-toggle--active' : ''}`}
                 onClick={() => setAgentFilterOpen(prev => !prev)}
                 type="button"
+                aria-label={selectedAgent ? `Filter by agent: ${selectedAgent}` : 'All Agents'}
+                aria-expanded={agentFilterOpen}
+                aria-haspopup="listbox"
               >
                 {selectedAgent ? (
                   <span className="agent-flow__agent-filter-selected">
@@ -1009,7 +1037,7 @@ export function AgentFlow({
                 </svg>
               </button>
               {agentFilterOpen && (
-                <div className="agent-flow__agent-filter-dropdown">
+                <div className="agent-flow__agent-filter-dropdown" role="listbox" aria-label="Select agent filter">
                   <button
                     className={`agent-flow__agent-filter-option${!selectedAgent ? ' agent-flow__agent-filter-option--active' : ''}`}
                     onClick={() => { setSelectedAgent(null); setAgentFilterOpen(false); }}
@@ -1064,6 +1092,8 @@ export function AgentFlow({
               onClick={() => setGroupByAgent(prev => !prev)}
               title={groupByAgent ? 'Show flat list' : 'Group by agent'}
               type="button"
+              aria-label={groupByAgent ? 'Show flat list' : 'Group by agent'}
+              aria-pressed={groupByAgent}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="7" height="7" />
@@ -1075,12 +1105,12 @@ export function AgentFlow({
           )}
 
           {status === 'connected' && (
-            <button className="agent-flow__connect-btn" onClick={disconnect} type="button">
+            <button className="agent-flow__connect-btn" onClick={disconnect} type="button" aria-label="Disconnect from event stream">
               Disconnect
             </button>
           )}
           {status === 'disconnected' && (
-            <button className="agent-flow__connect-btn" onClick={connect} type="button">
+            <button className="agent-flow__connect-btn" onClick={connect} type="button" aria-label="Connect to event stream">
               Connect
             </button>
           )}
@@ -1089,7 +1119,7 @@ export function AgentFlow({
 
       {/* Search bar */}
       {searchOpen && (
-        <div className="agent-flow__search-bar">
+        <div className="agent-flow__search-bar" role="search" aria-label="Search events">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" />
             <path d="M21 21l-4.35-4.35" />
@@ -1101,9 +1131,10 @@ export function AgentFlow({
             placeholder="Search events..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search events"
           />
           {searchQuery && (
-            <span className="agent-flow__search-count">
+            <span className="agent-flow__search-count" aria-live="polite">
               {typeFilteredEvents.length} matches
             </span>
           )}
@@ -1111,6 +1142,7 @@ export function AgentFlow({
             className="agent-flow__search-close"
             onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
             type="button"
+            aria-label="Close search"
           >
             ✕
           </button>
@@ -1119,7 +1151,7 @@ export function AgentFlow({
 
       {/* Time range filter bar */}
       {(timeFilterOpen || timeFrom || timeTo) && (
-        <div className="agent-flow__time-filter">
+        <div className="agent-flow__time-filter" role="group" aria-label="Time range filter">
           <span className="agent-flow__time-filter-label">Time range:</span>
           <input
             type="datetime-local"
@@ -1127,6 +1159,7 @@ export function AgentFlow({
             value={timeFrom}
             onChange={(e) => setTimeFrom(e.target.value)}
             placeholder="From"
+            aria-label="Start time"
           />
           <span className="agent-flow__time-filter-sep">to</span>
           <input
@@ -1135,12 +1168,14 @@ export function AgentFlow({
             value={timeTo}
             onChange={(e) => setTimeTo(e.target.value)}
             placeholder="To"
+            aria-label="End time"
           />
           <button
             className="agent-flow__time-filter-clear"
             onClick={() => { setTimeFrom(''); setTimeTo(''); }}
             title="Clear time filter"
             type="button"
+            aria-label="Clear time filter"
           >
             Clear
           </button>
@@ -1148,13 +1183,14 @@ export function AgentFlow({
       )}
 
       {/* Event type filter checkboxes */}
-      <div className="agent-flow__type-filter">
+      <div className="agent-flow__type-filter" role="group" aria-label="Event type filters">
         {ALL_EVENT_TYPES.map(type => (
           <label key={type} className="agent-flow__type-checkbox">
             <input
               type="checkbox"
               checked={enabledTypes.has(type)}
               onChange={() => toggleEventType(type)}
+              aria-label={`Filter ${type} events`}
             />
             <span
               className="agent-flow__type-label"
@@ -1205,7 +1241,7 @@ export function AgentFlow({
 
       {/* Events (virtualized) */}
       <div className="agent-flow__events-wrapper">
-        <div ref={parentRef} className={`agent-flow__events${viewMode === 'waterfall' ? ' agent-flow__events--waterfall' : ''}`}>
+        <div ref={parentRef} className={`agent-flow__events${viewMode === 'waterfall' ? ' agent-flow__events--waterfall' : ''}`} role="log" aria-label="Event stream" aria-live="polite">
           {viewMode === 'waterfall' ? (
             bookmarkFilteredEvents.length === 0 ? (
               <div className="agent-flow__empty">
@@ -1286,6 +1322,8 @@ export function AgentFlow({
                         className="agent-flow__group-header"
                         onClick={() => toggleAgentGroup(item.agentName)}
                         type="button"
+                        aria-expanded={!collapsedAgentGroups.has(item.agentName)}
+                        aria-label={`${item.agentName} agent group (${item.count} events)`}
                       >
                         <AgentAvatar
                           avatar={item.agentAvatar}
@@ -1304,6 +1342,7 @@ export function AgentFlow({
                     </div>
                   );
                 }
+
 
                 // Render event — full content only when the row has been
                 // scrolled into the viewport; otherwise render a lightweight
@@ -1359,6 +1398,8 @@ export function AgentFlow({
               onClick={() => setAutoScroll(prev => !prev)}
               title={autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF'}
               type="button"
+              aria-label={autoScroll ? 'Disable auto-scroll' : 'Enable auto-scroll'}
+              aria-pressed={autoScroll}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 {autoScroll ? (
@@ -1373,7 +1414,7 @@ export function AgentFlow({
               </svg>
             </button>
             {showScrollBottom && (
-              <button className="agent-flow__scroll-bottom" onClick={scrollToBottom} title="Scroll to bottom" type="button">
+              <button className="agent-flow__scroll-bottom" onClick={scrollToBottom} title="Scroll to bottom" type="button" aria-label="Scroll to bottom">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 5v14M19 12l-7 7-7-7" />
                 </svg>
@@ -1385,7 +1426,7 @@ export function AgentFlow({
 
       {/* Event Detail Modal */}
       {selectedEvent && (
-        <div className="agent-flow__modal-overlay" onClick={() => setSelectedEvent(null)}>
+        <div className="agent-flow__modal-overlay" onClick={() => setSelectedEvent(null)} role="dialog" aria-modal="true" aria-label="Event detail">
           <div className="agent-flow__modal" onClick={(e) => e.stopPropagation()}>
             <div className="agent-flow__modal-header">
               <span className="agent-flow__modal-title">Event Detail</span>
@@ -1395,6 +1436,7 @@ export function AgentFlow({
                   onClick={() => copyToClipboard(JSON.stringify(selectedEvent, null, 2))}
                   title="Copy JSON"
                   type="button"
+                  aria-label="Copy event JSON"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
@@ -1406,6 +1448,7 @@ export function AgentFlow({
                   onClick={() => setSelectedEvent(null)}
                   title="Close"
                   type="button"
+                  aria-label="Close event detail"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -1423,7 +1466,7 @@ export function AgentFlow({
 
       {/* Keyboard Shortcuts Help Overlay */}
       {showHelp && (
-        <div className="agent-flow__modal-overlay" onClick={() => setShowHelp(false)}>
+        <div className="agent-flow__modal-overlay" onClick={() => setShowHelp(false)} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts help">
           <div className="agent-flow__help-modal" onClick={(e) => e.stopPropagation()}>
             <div className="agent-flow__modal-header">
               <span className="agent-flow__modal-title">Keyboard Shortcuts</span>
@@ -1432,6 +1475,7 @@ export function AgentFlow({
                 onClick={() => setShowHelp(false)}
                 title="Close"
                 type="button"
+                aria-label="Close help"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
