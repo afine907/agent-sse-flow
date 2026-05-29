@@ -76,6 +76,7 @@ export function AgentFlow({
   const [timeTo, setTimeTo] = useState('');
   const [timeFilterOpen, setTimeFilterOpen] = useState(false);
   const [enabledTypes, setEnabledTypes] = useState<Set<EventType>>(new Set(ALL_EVENT_TYPES));
+  const [showStats, setShowStats] = useState(false);
   const parentRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -108,6 +109,17 @@ export function AgentFlow({
     if (enabledTypes.size === ALL_EVENT_TYPES.length) return timeFilteredEvents;
     return timeFilteredEvents.filter(e => enabledTypes.has(e.type));
   }, [timeFilteredEvents, enabledTypes]);
+
+  // Event type counts for stats panel
+  const eventTypeCounts = useMemo(() => {
+    const counts: Record<EventType, number> = {
+      start: 0, thinking: 0, tool_call: 0, tool_result: 0, message: 0, error: 0, end: 0,
+    };
+    for (const e of filteredEvents) {
+      counts[e.type]++;
+    }
+    return counts;
+  }, [filteredEvents]);
 
   // Toggle event type filter
   const toggleEventType = useCallback((type: EventType) => {
@@ -288,6 +300,20 @@ export function AgentFlow({
           )}
         </div>
         <div className="agent-flow__header-right">
+          {/* Stats toggle */}
+          <button
+            className={`agent-flow__header-btn${showStats ? ' agent-flow__header-btn--active' : ''}`}
+            onClick={() => setShowStats(prev => !prev)}
+            title="Toggle event statistics"
+            type="button"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+          </button>
+
           {/* Clear events */}
           <button
             className="agent-flow__header-btn"
@@ -471,6 +497,43 @@ export function AgentFlow({
           </label>
         ))}
       </div>
+
+      {/* Statistics panel */}
+      {showStats && (
+        <div className="agent-flow__stats">
+          <div className="agent-flow__stats-row">
+            <span className="agent-flow__stats-item">
+              <span className="agent-flow__stats-label">Total</span>
+              <span className="agent-flow__stats-value">{filteredEvents.length}</span>
+            </span>
+            {ALL_EVENT_TYPES.map(type => (
+              eventTypeCounts[type] > 0 && (
+                <span key={type} className="agent-flow__stats-badge" style={{ background: EVENT_DOT_COLORS[type] }}>
+                  {type} {eventTypeCounts[type]}
+                </span>
+              )
+            ))}
+            {stats.totalCost > 0 && (
+              <span className="agent-flow__stats-item">
+                <span className="agent-flow__stats-label">Cost</span>
+                <span className="agent-flow__stats-value">${stats.totalCost.toFixed(4)}</span>
+              </span>
+            )}
+            {stats.totalTokens > 0 && (
+              <span className="agent-flow__stats-item">
+                <span className="agent-flow__stats-label">Tokens</span>
+                <span className="agent-flow__stats-value">{stats.totalTokens.toLocaleString()}</span>
+              </span>
+            )}
+            {stats.agents.length > 0 && (
+              <span className="agent-flow__stats-item">
+                <span className="agent-flow__stats-label">Agents</span>
+                <span className="agent-flow__stats-value">{stats.agents.length}</span>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Events (virtualized) */}
       <div className="agent-flow__events-wrapper">
