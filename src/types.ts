@@ -48,6 +48,8 @@ export interface AgentFlowProps {
   searchKey?: string;
   /** Locale for UI labels: 'en' (default) or 'zh' */
   locale?: Locale;
+  /** Enable subtle sound feedback for events (default: false) */
+  enableSounds?: boolean;
 }
 
 export interface FlowEvent {
