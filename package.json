@@ -38,7 +38,8 @@
     "benchmark": "vitest run --config vitest.benchmark.config.ts",
     "dev-storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build -o storybook-static",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "prepare": "husky"
   },
   "keywords": [
     "agent",
@@ -78,7 +79,9 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "husky": "^9.1.7",
     "jsdom": "^29.1.1",
+    "lint-staged": "^17.0.5",
     "prettier": "^3.8.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -90,5 +93,14 @@
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.24",
     "react-markdown": "^10.1.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{css,json,md}": [
+      "prettier --write"
+    ]
   }
 }
