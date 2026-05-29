@@ -2584,6 +2584,57 @@
   font-size: 9px;
 }
 
+/* DAG View */
+.agent-flow__events--dag,.agent-flow__events--swimlane{padding:0;overflow:auto}
+.agent-flow__dag{display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow:auto;height:100%}
+.agent-flow__dag-svg{max-width:100%}
+.agent-flow__dag-empty,.agent-flow__swimlane-empty,.agent-flow__chart-empty,.agent-flow__cost-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--af-text-tertiary);font-size:13px}
+.agent-flow__dag-node{cursor:default}
+.agent-flow__dag-node:hover rect:first-child{filter:brightness(1.15)}
+.agent-flow__dag-edge{transition:stroke-width 0.15s}
+/* Swimlane View */
+.agent-flow__swimlane{position:relative;min-height:100%;overflow:auto}
+.agent-flow__swimlane-time-axis{position:relative;height:24px;border-bottom:1px solid var(--af-border);flex-shrink:0}
+.agent-flow__swimlane-tick{position:absolute;bottom:4px;transform:translateX(-50%);font-size:10px;font-family:var(--af-mono);color:var(--af-text-tertiary);white-space:nowrap}
+.agent-flow__swimlane-content{min-width:600px}
+.agent-flow__swimlane-lane{display:flex;align-items:stretch;border-bottom:1px solid var(--af-border-subtle);position:relative}
+.agent-flow__swimlane-label{display:flex;align-items:center;gap:6px;padding:0 10px;flex-shrink:0;border-right:1px solid var(--af-border);overflow:hidden}
+.agent-flow__swimlane-agent-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.agent-flow__swimlane-agent-name{font-size:11px;font-weight:600;color:var(--af-text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agent-flow__swimlane-track{flex:1;position:relative;min-width:0}
+.agent-flow__swimlane-grid-line{position:absolute;top:0;bottom:0;width:1px;background:var(--af-border-subtle);opacity:0.5}
+.agent-flow__swimlane-block{position:absolute;height:28px;border-radius:4px;min-width:4px;cursor:pointer;overflow:hidden;display:flex;align-items:center;transition:filter 0.15s;opacity:0.85}
+.agent-flow__swimlane-block:hover{filter:brightness(1.2);opacity:1}
+.agent-flow__swimlane-block-label{padding:0 4px;font-size:9px;font-family:var(--af-mono);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,0.3)}
+/* Token Chart */
+.agent-flow__chart{padding:12px 16px;border-top:1px solid var(--af-border);background:var(--af-bg-raised)}
+.agent-flow__chart-svg{display:block}
+.agent-flow__chart-breakdown{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+.agent-flow__chart-breakdown-item{display:inline-flex;align-items:center;gap:4px}
+.agent-flow__chart-breakdown-dot{width:8px;height:8px;border-radius:50%}
+.agent-flow__chart-breakdown-label{font-size:11px;color:var(--af-text-tertiary);text-transform:uppercase;font-weight:600;letter-spacing:0.03em}
+.agent-flow__chart-breakdown-value{font-size:11px;color:var(--af-text-secondary);font-family:var(--af-mono)}
+/* Cost Dashboard */
+.agent-flow__cost-dashboard{padding:16px;border-top:1px solid var(--af-border);background:var(--af-bg-raised)}
+.agent-flow__cost-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
+.agent-flow__cost-card{padding:10px 12px;border-radius:var(--af-radius-sm);display:flex;flex-direction:column;gap:4px}
+.agent-flow__cost-card-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--af-text-tertiary)}
+.agent-flow__cost-card-value{font-size:18px;font-weight:600;font-family:var(--af-mono);color:var(--af-text)}
+.agent-flow__cost-details{display:flex;gap:24px;flex-wrap:wrap}
+.agent-flow__cost-section-title{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--af-text-tertiary);margin-bottom:10px}
+.agent-flow__cost-pie-section{display:flex;flex-direction:column;align-items:center}
+.agent-flow__cost-pie-legend{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.agent-flow__cost-pie-legend-item{display:flex;align-items:center;gap:6px;font-size:11px}
+.agent-flow__cost-pie-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.agent-flow__cost-pie-legend-label{flex:1;text-transform:uppercase;font-weight:600;letter-spacing:0.03em}
+.agent-flow__cost-pie-legend-pct{font-family:var(--af-mono);font-weight:500}
+.agent-flow__cost-agent-section{flex:1;min-width:200px}
+.agent-flow__cost-agent-list{display:flex;flex-direction:column;gap:6px}
+.agent-flow__cost-agent-row{display:flex;align-items:center;gap:8px}
+.agent-flow__cost-agent-name{width:100px;font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0}
+.agent-flow__cost-agent-bar-wrapper{flex:1;height:6px;background:var(--af-surface);border-radius:3px;overflow:hidden}
+.agent-flow__cost-agent-bar{display:block;height:100%;border-radius:3px;min-width:2px;transition:width 0.2s ease}
+.agent-flow__cost-agent-value{font-size:11px;font-family:var(--af-mono);flex-shrink:0;width:70px;text-align:right}
 /* =============================================
    Mobile Responsive Layout (< 768px)
    ============================================= */
