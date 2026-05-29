@@ -70,7 +70,7 @@ function Demo() {
             fontWeight: 500,
             fontFamily: "'SF Mono', 'Cascadia Code', monospace",
           }}>
-            v2.2.0
+            v2.3.0
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
