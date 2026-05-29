@@ -439,8 +439,10 @@ describe('AgentFlow', () => {
       expect(onError).toHaveBeenCalled()
       expect(onStatusChange).toHaveBeenCalledWith('error')
 
-      // Error status should be visible in the UI
-      expect(screen.getByText('error')).toBeInTheDocument()
+      // Error status should be visible in the UI (status span, not the type filter label)
+      const errorTexts = screen.getAllByText('error')
+      const statusError = errorTexts.find(el => el.classList.contains('agent-flow__status'))
+      expect(statusError).toBeInTheDocument()
     })
 
     it('shows error status dot with error class', async () => {
@@ -555,8 +557,10 @@ describe('AgentFlow', () => {
       mockEventSource?.simulateError()
       await vi.advanceTimersByTimeAsync(50)
 
-      // After error, the component should show error status
-      expect(screen.getByText('error')).toBeInTheDocument()
+      // After error, the component should show error status (status span, not type filter label)
+      const errorTexts = screen.getAllByText('error')
+      const statusError = errorTexts.find(el => el.classList.contains('agent-flow__status'))
+      expect(statusError).toBeInTheDocument()
     })
 
     it('calls onError with meaningful error message', async () => {
