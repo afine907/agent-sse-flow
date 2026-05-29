@@ -2045,3 +2045,183 @@
   color: var(--af-accent);
   background: var(--af-accent-muted);
 }
+
+/* =============================================
+   Resize Handle
+   ============================================= */
+
+.agent-flow__resize-handle {
+  height: 6px;
+  cursor: ns-resize;
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.15s;
+}
+
+.agent-flow__resize-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 3px;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.agent-flow--dark .agent-flow__resize-handle::after {
+  background: #3d4060;
+}
+
+.agent-flow--light .agent-flow__resize-handle::after {
+  background: #c5c9d3;
+}
+
+.agent-flow__resize-handle:hover::after {
+  opacity: 1;
+}
+
+.agent-flow--dark .agent-flow__resize-handle:hover {
+  background: rgba(110, 139, 250, 0.08);
+}
+
+.agent-flow--light .agent-flow__resize-handle:hover {
+  background: rgba(79, 110, 247, 0.04);
+}
+
+/* =============================================
+   Compact View Mode
+   ============================================= */
+
+.agent-flow--compact {
+  font-size: 12px;
+}
+
+.agent-flow--compact .agent-flow__event-row {
+  padding-bottom: 2px;
+}
+
+/* List view compact: reduced padding, hide badges and timestamps */
+.agent-flow--compact .agent-flow__event {
+  padding: 4px 8px;
+  gap: 6px;
+}
+
+.agent-flow--compact .agent-flow__event-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.agent-flow--compact .agent-flow__event-icon svg {
+  width: 11px;
+  height: 11px;
+}
+
+.agent-flow--compact .agent-flow__event-header {
+  gap: 4px;
+}
+
+.agent-flow--compact .agent-flow__event-type {
+  font-size: 9.5px;
+}
+
+.agent-flow--compact .agent-flow__event-time {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__agent-badge-wrapper,
+.agent-flow--compact .agent-flow__agent-badge {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__duration,
+.agent-flow--compact .agent-flow__duration-bar {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__event-message {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.agent-flow--compact .agent-flow__bookmark-btn {
+  display: none;
+}
+
+/* Hide tool details in compact mode */
+.agent-flow--compact .agent-flow__event-tool {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__event-result {
+  display: none;
+}
+
+/* Timeline view compact */
+.agent-flow--compact .agent-flow__timeline-item {
+  min-height: 28px;
+}
+
+.agent-flow--compact .agent-flow__timeline-track {
+  width: 24px;
+}
+
+.agent-flow--compact .agent-flow__timeline-dot {
+  width: 6px;
+  height: 6px;
+  margin-top: 10px;
+}
+
+.agent-flow--compact .agent-flow__timeline-body {
+  padding: 3px 8px 4px 0;
+}
+
+.agent-flow--compact .agent-flow__timeline-header {
+  min-height: 22px;
+  gap: 5px;
+}
+
+.agent-flow--compact .agent-flow__timeline-header .agent-flow__event-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.agent-flow--compact .agent-flow__timeline-header .agent-flow__event-icon svg {
+  width: 10px;
+  height: 10px;
+}
+
+.agent-flow--compact .agent-flow__timeline-label {
+  font-size: 9px;
+}
+
+.agent-flow--compact .agent-flow__timeline-summary {
+  font-size: 11px;
+}
+
+.agent-flow--compact .agent-flow__timeline-detail {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__timeline-chevron {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__duration-bar {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__event-time {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__detail-btn {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__bookmark-btn {
+  display: none;
+}

@@ -180,6 +180,7 @@ export function AgentFlow({
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
   const [groupByAgent, setGroupByAgent] = useState(false);
   const [collapsedAgentGroups, setCollapsedAgentGroups] = useState<Set<string>>(new Set());
+  const [compact, setCompact] = useState(false);
   // Merge customTheme CSS variable overrides with the user-supplied style prop
   const mergedStyle = useMemo(
     () => (customTheme ? { ...style, ...customTheme } : style),
@@ -193,6 +194,9 @@ export function AgentFlow({
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [agentFilterOpen, setAgentFilterOpen] = useState(false);
   const agentFilterRef = useRef<HTMLDivElement>(null);
+  const [componentHeight, setComponentHeight] = useState<number | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const isResizing = useRef(false);
 
   // Search filter
   const searchFilteredEvents = useMemo(() => {
@@ -385,6 +389,34 @@ export function AgentFlow({
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, [agentFilterOpen]);
+
+  // Resizable component height via bottom drag handle
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+    const startY = e.clientY;
+    const startHeight = rootRef.current?.offsetHeight ?? 400;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isResizing.current) return;
+      const delta = ev.clientY - startY;
+      const newHeight = Math.max(200, startHeight + delta);
+      setComponentHeight(newHeight);
+    };
+
+    const onMouseUp = () => {
+      isResizing.current = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
 
   const toggleCollapse = useCallback((id: number) => {
     setCollapsedIds(prev => {
@@ -580,10 +612,19 @@ export function AgentFlow({
     );
   }
 
+  const rootStyle = useMemo(
+    () => ({
+      ...mergedStyle,
+      ...(componentHeight !== null ? { height: componentHeight } : {}),
+    }),
+    [mergedStyle, componentHeight],
+  );
+
   return (
     <div
-      className={`agent-flow agent-flow--${theme}${viewMode === 'timeline' ? ' agent-flow--timeline' : ''}${className ? ` ${className}` : ''}`}
-      style={mergedStyle}
+      ref={rootRef}
+      className={`agent-flow agent-flow--${theme}${viewMode === 'timeline' ? ' agent-flow--timeline' : ''}${compact ? ' agent-flow--compact' : ''}${className ? ` ${className}` : ''}`}
+      style={rootStyle}
     >
       {/* Header */}
       <div className="agent-flow__header">
@@ -673,6 +714,21 @@ export function AgentFlow({
               <line x1="18" y1="20" x2="18" y2="10" />
               <line x1="12" y1="20" x2="12" y2="4" />
               <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+          </button>
+
+          {/* Compact view toggle */}
+          <button
+            className={`agent-flow__header-btn${compact ? ' agent-flow__header-btn--active' : ''}`}
+            onClick={() => setCompact(prev => !prev)}
+            title={compact ? 'Switch to normal view' : 'Switch to compact view'}
+            type="button"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="21" y1="10" x2="3" y2="10" />
+              <line x1="21" y1="6" x2="3" y2="6" />
+              <line x1="21" y1="14" x2="3" y2="14" />
+              <line x1="21" y1="18" x2="3" y2="18" />
             </svg>
           </button>
 
@@ -1206,6 +1262,15 @@ export function AgentFlow({
           </div>
         </div>
       )}
+
+      {/* Resize handle */}
+      <div
+        className="agent-flow__resize-handle"
+        onMouseDown={handleResizeStart}
+        role="separator"
+        aria-orientation="horizontal"
+        title="Drag to resize"
+      />
     </div>
   );
 }
