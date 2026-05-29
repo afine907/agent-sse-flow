@@ -767,6 +767,8 @@ export function AgentFlow({
               onClick={() => setShowStatusDetails(prev => !prev)}
               title="Connection details"
               type="button"
+              aria-label={`Connection status: ${status}`}
+              aria-expanded={showStatusDetails}
             >
               <span className={`agent-flow__status-dot agent-flow__status-dot--${status}`} />
               {status}
@@ -805,7 +807,7 @@ export function AgentFlow({
               </div>
             )}
           </div>
-          <span className="agent-flow__event-count">
+          <span className="agent-flow__event-count" aria-live="polite" aria-label="Event count">
             {hasActiveFilters ? `${bookmarkFilteredEvents.length}/${filteredEvents.length}` : filteredEvents.length} events
           </span>
           {bookmarkedIds.size > 0 && (
@@ -820,7 +822,7 @@ export function AgentFlow({
             <span className="agent-flow__tokens">{stats.totalTokens.toLocaleString()} tokens</span>
           )}
         </div>
-        <div className="agent-flow__header-right">
+        <div className="agent-flow__header-right" role="toolbar" aria-label="Event controls">
           {/* Bookmark filter toggle */}
           {bookmarkedIds.size > 0 && (
             <button
