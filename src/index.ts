@@ -5,7 +5,7 @@
  * Free, unlimited, local.
  *
  * @package agent-sse-flow
- * @version 2.3.0
+ * @version 3.0.0
  */
 
 // Main component
@@ -26,7 +26,12 @@ export type { Locale, TranslationKey } from './i18n';
 export { createT } from './i18n';
 
 // Sound feedback
-export { playErrorSound, playConnectedSound, playDisconnectedSound, playSearchCompleteSound } from './sounds';
+export {
+  playErrorSound,
+  playConnectedSound,
+  playDisconnectedSound,
+  playSearchCompleteSound,
+} from './sounds';
 
 // Types
 export type {
@@ -43,7 +48,11 @@ export type {
 
 // Transport adapters
 export { useWebSocket } from './adapters/websocket';
-export type { UseWebSocketOptions, UseWebSocketReturn, ConnectionStatus } from './adapters/websocket';
+export type {
+  UseWebSocketOptions,
+  UseWebSocketReturn,
+  ConnectionStatus,
+} from './adapters/websocket';
 export { usePolling } from './adapters/polling';
 export type { UsePollingOptions, UsePollingReturn } from './adapters/polling';
 
@@ -52,7 +61,13 @@ export { validateFlowEvent, formatValidationErrors } from './validate';
 export type { ValidationError, ValidationResult } from './validate';
 
 // Snapshot store
-export { saveSnapshot, loadAllSnapshots, loadSnapshot, deleteSnapshot, clearAllSnapshots } from './snapshot-store';
+export {
+  saveSnapshot,
+  loadAllSnapshots,
+  loadSnapshot,
+  deleteSnapshot,
+  clearAllSnapshots,
+} from './snapshot-store';
 export type { EventSnapshot } from './snapshot-store';
 
 // Event diff
@@ -61,7 +76,12 @@ export type { DiffLine, DiffLineType } from './event-diff';
 
 // AI Analysis
 export { prepareEventsForAnalysis, buildAnalysisPrompt } from './ai-analysis';
-export type { AnalysisResult, AnalysisFinding, AnalysisOptions, AnalyzeCallback } from './ai-analysis';
+export type {
+  AnalysisResult,
+  AnalysisFinding,
+  AnalysisOptions,
+  AnalyzeCallback,
+} from './ai-analysis';
 
 // Event clustering
 export { clusterEvents, getClusterColor } from './event-cluster';
@@ -69,7 +89,12 @@ export type { EventCluster } from './event-cluster';
 
 // Performance analysis
 export { analyzePerformance } from './perf-analyze';
-export type { PerfFinding, PerfAnalysisOptions, PerfAnalysisResult, FindingSeverity } from './perf-analyze';
+export type {
+  PerfFinding,
+  PerfAnalysisOptions,
+  PerfAnalysisResult,
+  FindingSeverity,
+} from './perf-analyze';
 
 // Recording
 export { createRecordingBuffer, downloadJSONL, parseJSONL } from './recording';
