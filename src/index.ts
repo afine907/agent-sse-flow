@@ -36,3 +36,7 @@ export type {
   UseSSEReturn,
   ConnectionDetails,
 } from './types';
+
+// Transport adapters
+export { useWebSocket } from './adapters/websocket';
+export type { UseWebSocketOptions, UseWebSocketReturn, ConnectionStatus } from './adapters/websocket';
