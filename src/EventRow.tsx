@@ -61,6 +61,10 @@ interface RowProps {
   highlighted?: boolean;
   /** Whether to display relative time instead of absolute time */
   relativeTime?: boolean;
+  /** Whether this event is bookmarked */
+  bookmarked?: boolean;
+  /** Called when the bookmark button is clicked */
+  onToggleBookmark?: () => void;
 }
 
 /** EventRow — list/card view */
@@ -74,6 +78,8 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
     onEventClick,
     highlighted,
     relativeTime: useRelativeTime = false,
+    bookmarked = false,
+    onToggleBookmark,
   },
   ref,
 ) {
@@ -82,7 +88,7 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
   return (
     <div
       ref={ref}
-      className={`agent-flow__event agent-flow__event--${event.type} agent-flow__event--clickable${highlighted ? ' agent-flow__event--highlight' : ''}`}
+      className={`agent-flow__event agent-flow__event--${event.type} agent-flow__event--clickable${highlighted ? ' agent-flow__event--highlight' : ''}${bookmarked ? ' agent-flow__event--bookmarked' : ''}`}
       onClick={() => onEventClick?.(event)}
       role="button"
       tabIndex={0}
@@ -95,6 +101,18 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
       <EventIcon type={event.type} />
       <div className="agent-flow__event-content">
         <div className="agent-flow__event-header">
+          {onToggleBookmark && (
+            <button
+              className={`agent-flow__bookmark-btn${bookmarked ? ' agent-flow__bookmark-btn--active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
+              title={bookmarked ? 'Remove bookmark' : 'Bookmark event'}
+              type="button"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            </button>
+          )}
           <span className="agent-flow__event-type">{event.type}</span>
           {event.agentName && (
             <span
@@ -172,6 +190,8 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
     onEventClick,
     highlighted,
     relativeTime: useRelativeTime = false,
+    bookmarked = false,
+    onToggleBookmark,
   },
   ref,
 ) {
@@ -180,7 +200,7 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
   return (
     <div
       ref={ref}
-      className={`agent-flow__timeline-item agent-flow__timeline-item--${event.type}${collapsed ? ' agent-flow__timeline-item--collapsed' : ''}${highlighted ? ' agent-flow__event--highlight' : ''}`}
+      className={`agent-flow__timeline-item agent-flow__timeline-item--${event.type}${collapsed ? ' agent-flow__timeline-item--collapsed' : ''}${highlighted ? ' agent-flow__event--highlight' : ''}${bookmarked ? ' agent-flow__event--bookmarked' : ''}`}
       onClick={onToggle}
       role="button"
       tabIndex={0}
@@ -210,6 +230,18 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
             </span>
           )}
           {time && <span className="agent-flow__event-time">{time}</span>}
+          {onToggleBookmark && (
+            <button
+              className={`agent-flow__bookmark-btn${bookmarked ? ' agent-flow__bookmark-btn--active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
+              title={bookmarked ? 'Remove bookmark' : 'Bookmark event'}
+              type="button"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            </button>
+          )}
           {onEventClick && (
             <button
               className="agent-flow__detail-btn"

@@ -84,6 +84,8 @@ export function AgentFlow({
   const [highlightedEventId, setHighlightedEventId] = useState<number | null>(null);
   const [currentErrorNavIndex, setCurrentErrorNavIndex] = useState(0);
   const [showStatusDetails, setShowStatusDetails] = useState(false);
+  const [bookmarkedIds, setBookmarkedIds] = useState<Set<number>>(new Set());
+  const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
   const parentRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -139,6 +141,22 @@ export function AgentFlow({
       return next;
     });
   }, []);
+
+  // Toggle bookmark for a specific event
+  const toggleBookmark = useCallback((id: number) => {
+    setBookmarkedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // Bookmark filter (applied after type filter)
+  const bookmarkFilteredEvents = useMemo(() => {
+    if (!showBookmarkedOnly) return typeFilteredEvents;
+    return typeFilteredEvents.filter(e => bookmarkedIds.has(e.id));
+  }, [typeFilteredEvents, showBookmarkedOnly, bookmarkedIds]);
 
   // Keyboard shortcut for search, help, and Escape handling
   useEffect(() => {
@@ -221,6 +239,8 @@ export function AgentFlow({
     setExpandedArgsIds(new Set());
     setCurrentErrorNavIndex(0);
     setHighlightedEventId(null);
+    setBookmarkedIds(new Set());
+    setShowBookmarkedOnly(false);
   }, [clearEvents]);
 
   // Cleanup highlight timer on unmount
@@ -234,14 +254,14 @@ export function AgentFlow({
 
   // Auto-collapse new events in timeline mode
   useEffect(() => {
-    if (viewMode === 'timeline' && defaultCollapsed && typeFilteredEvents.length > 0) {
-      const latest = typeFilteredEvents[typeFilteredEvents.length - 1];
+    if (viewMode === 'timeline' && defaultCollapsed && bookmarkFilteredEvents.length > 0) {
+      const latest = bookmarkFilteredEvents[bookmarkFilteredEvents.length - 1];
       if (!collapsedIds.has(latest.id)) {
         setCollapsedIds(prev => new Set(prev).add(latest.id));
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeFilteredEvents.length]);
+  }, [bookmarkFilteredEvents.length]);
 
   // Track scroll position to disable auto-scroll when user scrolls up
   useEffect(() => {
@@ -264,10 +284,10 @@ export function AgentFlow({
 
   // Virtual scrolling with dynamic height measurement
   const virtualizer = useVirtualizer({
-    count: typeFilteredEvents.length,
+    count: bookmarkFilteredEvents.length,
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => {
-      const event = typeFilteredEvents[index];
+      const event = bookmarkFilteredEvents[index];
       if (!event) return 80;
       // Dynamic estimate based on event type
       if (event.type === 'tool_call' && event.argsJson) {
@@ -285,35 +305,35 @@ export function AgentFlow({
       return 80;
     },
     overscan: 5,
-    getItemKey: (index) => typeFilteredEvents[index]?.id ?? index,
+    getItemKey: (index) => bookmarkFilteredEvents[index]?.id ?? index,
   });
 
   // Auto-scroll to bottom when new events arrive (if enabled)
   useEffect(() => {
-    if (autoScroll && typeFilteredEvents.length > 0) {
+    if (autoScroll && bookmarkFilteredEvents.length > 0) {
       requestAnimationFrame(() => {
-        virtualizer.scrollToIndex(typeFilteredEvents.length - 1, { align: 'end' });
+        virtualizer.scrollToIndex(bookmarkFilteredEvents.length - 1, { align: 'end' });
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeFilteredEvents.length, autoScroll]);
+  }, [bookmarkFilteredEvents.length, autoScroll]);
 
   // Scroll to bottom (also re-enables auto-scroll)
   const scrollToBottom = useCallback(() => {
     setAutoScroll(true);
-    virtualizer.scrollToIndex(typeFilteredEvents.length - 1, { align: 'end' });
-  }, [virtualizer, typeFilteredEvents.length]);
+    virtualizer.scrollToIndex(bookmarkFilteredEvents.length - 1, { align: 'end' });
+  }, [virtualizer, bookmarkFilteredEvents.length]);
 
   // Track error event indices for jump navigation
   const errorIndices = useMemo(() => {
     const indices: number[] = [];
-    for (let i = 0; i < typeFilteredEvents.length; i++) {
-      if (typeFilteredEvents[i].type === 'error') {
+    for (let i = 0; i < bookmarkFilteredEvents.length; i++) {
+      if (bookmarkFilteredEvents[i].type === 'error') {
         indices.push(i);
       }
     }
     return indices;
-  }, [typeFilteredEvents]);
+  }, [bookmarkFilteredEvents]);
 
   // Jump to next error event
   const jumpToNextError = useCallback(() => {
@@ -321,7 +341,7 @@ export function AgentFlow({
     const nextIdx = currentErrorNavIndex % errorIndices.length;
     const eventIndex = errorIndices[nextIdx];
     virtualizer.scrollToIndex(eventIndex, { align: 'center' });
-    const eventId = typeFilteredEvents[eventIndex]?.id;
+    const eventId = bookmarkFilteredEvents[eventIndex]?.id;
     if (eventId !== undefined) {
       setHighlightedEventId(eventId);
       if (highlightTimerRef.current) {
@@ -330,11 +350,11 @@ export function AgentFlow({
       highlightTimerRef.current = setTimeout(() => setHighlightedEventId(null), 2000);
     }
     setCurrentErrorNavIndex(prev => prev + 1);
-  }, [errorIndices, currentErrorNavIndex, virtualizer, typeFilteredEvents]);
+  }, [errorIndices, currentErrorNavIndex, virtualizer, bookmarkFilteredEvents]);
 
 
   // Determine if any filters are active
-  const hasActiveFilters = searchQuery || timeFrom || timeTo || enabledTypes.size !== ALL_EVENT_TYPES.length;
+  const hasActiveFilters = searchQuery || timeFrom || timeTo || enabledTypes.size !== ALL_EVENT_TYPES.length || showBookmarkedOnly;
 
   // SSR fallback
   if (!isSupported) {
@@ -412,8 +432,13 @@ export function AgentFlow({
             )}
           </div>
           <span className="agent-flow__event-count">
-            {hasActiveFilters ? `${typeFilteredEvents.length}/${filteredEvents.length}` : filteredEvents.length} events
+            {hasActiveFilters ? `${bookmarkFilteredEvents.length}/${filteredEvents.length}` : filteredEvents.length} events
           </span>
+          {bookmarkedIds.size > 0 && (
+            <span className="agent-flow__bookmark-count">
+              {bookmarkedIds.size} bookmarked
+            </span>
+          )}
           {stats.totalCost > 0 && (
             <span className="agent-flow__cost">${stats.totalCost.toFixed(4)}</span>
           )}
@@ -422,6 +447,20 @@ export function AgentFlow({
           )}
         </div>
         <div className="agent-flow__header-right">
+          {/* Bookmark filter toggle */}
+          {bookmarkedIds.size > 0 && (
+            <button
+              className={`agent-flow__header-btn${showBookmarkedOnly ? ' agent-flow__header-btn--active' : ''}`}
+              onClick={() => setShowBookmarkedOnly(prev => !prev)}
+              title={showBookmarkedOnly ? 'Show all events' : 'Show bookmarked only'}
+              type="button"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill={showBookmarkedOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            </button>
+          )}
+
           {/* Stats toggle */}
           <button
             className={`agent-flow__header-btn${showStats ? ' agent-flow__header-btn--active' : ''}`}
@@ -699,7 +738,7 @@ export function AgentFlow({
       {/* Events (virtualized) */}
       <div className="agent-flow__events-wrapper">
         <div ref={parentRef} className="agent-flow__events">
-          {typeFilteredEvents.length === 0 ? (
+          {bookmarkFilteredEvents.length === 0 ? (
             <div className="agent-flow__empty">
               {hasActiveFilters ? 'No matching events' : 'No events yet. Waiting for agent...'}
             </div>
@@ -709,7 +748,7 @@ export function AgentFlow({
               style={{ height: virtualizer.getTotalSize() }}
             >
               {virtualizer.getVirtualItems().map((virtualRow) => {
-                const event = typeFilteredEvents[virtualRow.index];
+                const event = bookmarkFilteredEvents[virtualRow.index];
                 return (
                   <div
                     key={event.id}
@@ -736,6 +775,8 @@ export function AgentFlow({
                         onEventClick={setSelectedEvent}
                         highlighted={highlightedEventId === event.id}
                         relativeTime={relativeTime}
+                        bookmarked={bookmarkedIds.has(event.id)}
+                        onToggleBookmark={() => toggleBookmark(event.id)}
                       />
                     ) : (
                       <EventRow
@@ -747,6 +788,8 @@ export function AgentFlow({
                         onEventClick={setSelectedEvent}
                         highlighted={highlightedEventId === event.id}
                         relativeTime={relativeTime}
+                        bookmarked={bookmarkedIds.has(event.id)}
+                        onToggleBookmark={() => toggleBookmark(event.id)}
                       />
                     )}
                   </div>
@@ -755,7 +798,7 @@ export function AgentFlow({
             </div>
           )}
         </div>
-        {typeFilteredEvents.length > 0 && (
+        {bookmarkFilteredEvents.length > 0 && (
           <div className="agent-flow__scroll-controls">
             <button
               className={`agent-flow__auto-scroll-btn${autoScroll ? ' agent-flow__auto-scroll-btn--active' : ''}`}
