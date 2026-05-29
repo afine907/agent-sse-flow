@@ -57,6 +57,8 @@ interface RowProps {
   onToggleArgs?: () => void;
   /** Called when the event row is clicked to show detail modal */
   onEventClick?: (event: FlowEvent) => void;
+  /** Whether this event is currently highlighted (e.g. after jump-to-error) */
+  highlighted?: boolean;
 }
 
 /** EventRow — list/card view */
@@ -68,6 +70,7 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
     showArgs = true,
     onToggleArgs,
     onEventClick,
+    highlighted,
   },
   ref,
 ) {
@@ -76,7 +79,7 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
   return (
     <div
       ref={ref}
-      className={`agent-flow__event agent-flow__event--${event.type} agent-flow__event--clickable`}
+      className={`agent-flow__event agent-flow__event--${event.type} agent-flow__event--clickable${highlighted ? ' agent-flow__event--highlight' : ''}`}
       onClick={() => onEventClick?.(event)}
       role="button"
       tabIndex={0}
@@ -156,6 +159,7 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
     showArgs = true,
     onToggleArgs,
     onEventClick,
+    highlighted,
   },
   ref,
 ) {
@@ -164,7 +168,7 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
   return (
     <div
       ref={ref}
-      className={`agent-flow__timeline-item agent-flow__timeline-item--${event.type}${collapsed ? ' agent-flow__timeline-item--collapsed' : ''}`}
+      className={`agent-flow__timeline-item agent-flow__timeline-item--${event.type}${collapsed ? ' agent-flow__timeline-item--collapsed' : ''}${highlighted ? ' agent-flow__event--highlight' : ''}`}
       onClick={onToggle}
       role="button"
       tabIndex={0}
