@@ -420,4 +420,210 @@ describe('AgentFlow', () => {
       expect(screen.queryByText('Agent started')).not.toBeInTheDocument()
     })
   })
+
+  // ─── EventSource Error and Lifecycle ──────────────────────────────────
+
+  describe('EventSource error and lifecycle', () => {
+    it('displays error status when EventSource onerror fires', async () => {
+      const onError = vi.fn()
+      const onStatusChange = vi.fn()
+      render(<AgentFlow url="http://localhost:8080/stream" autoReconnect={false} onError={onError} onStatusChange={onStatusChange} />)
+
+      await vi.advanceTimersByTimeAsync(20)
+      expect(onStatusChange).toHaveBeenCalledWith('connected')
+
+      // Trigger error
+      mockEventSource?.simulateError()
+      await vi.advanceTimersByTimeAsync(50)
+
+      expect(onError).toHaveBeenCalled()
+      expect(onStatusChange).toHaveBeenCalledWith('error')
+
+      // Error status should be visible in the UI
+      expect(screen.getByText('error')).toBeInTheDocument()
+    })
+
+    it('shows error status dot with error class', async () => {
+      render(<AgentFlow url="http://localhost:8080/stream" autoReconnect={false} />)
+
+      await vi.advanceTimersByTimeAsync(20)
+
+      // Initially connected
+      expect(document.querySelector('.agent-flow__status-dot--connected')).toBeInTheDocument()
+
+      // Trigger error
+      mockEventSource?.simulateError()
+      await vi.advanceTimersByTimeAsync(50)
+
+      // Error dot should appear
+      expect(document.querySelector('.agent-flow__status-dot--error')).toBeInTheDocument()
+    })
+
+    it('handles EventSource close during active streaming', async () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" />)
+
+      const eventsEl = container.querySelector('.agent-flow__events') as HTMLElement
+      if (eventsEl) {
+        Object.defineProperty(eventsEl, 'clientHeight', { value: 600, configurable: true })
+        Object.defineProperty(eventsEl, 'scrollHeight', { value: 600, configurable: true })
+      }
+
+      await vi.advanceTimersByTimeAsync(20)
+
+      // Stream some events
+      mockEventSource?.simulateMessage({ type: 'start', message: 'Started' })
+      mockEventSource?.simulateMessage({ type: 'message', message: 'Processing...' })
+      await vi.advanceTimersByTimeAsync(50)
+
+      expect(screen.getByText('Started')).toBeInTheDocument()
+      expect(screen.getByText('Processing...')).toBeInTheDocument()
+
+      // Close the EventSource (simulating server disconnect)
+      mockEventSource?.close()
+
+      // Events should still be visible (they persist in state)
+      expect(screen.getByText('Started')).toBeInTheDocument()
+      expect(screen.getByText('Processing...')).toBeInTheDocument()
+    })
+
+    it('preserves received events after error', async () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" />)
+
+      const eventsEl = container.querySelector('.agent-flow__events') as HTMLElement
+      if (eventsEl) {
+        Object.defineProperty(eventsEl, 'clientHeight', { value: 600, configurable: true })
+        Object.defineProperty(eventsEl, 'scrollHeight', { value: 600, configurable: true })
+      }
+
+      await vi.advanceTimersByTimeAsync(20)
+
+      // Receive events before error
+      mockEventSource?.simulateMessage({ type: 'start', message: 'Before error' })
+      mockEventSource?.simulateMessage({ type: 'tool_call', tool: 'search', message: 'Searching' })
+      await vi.advanceTimersByTimeAsync(50)
+
+      expect(screen.getByText('Before error')).toBeInTheDocument()
+      expect(screen.getByText('Searching')).toBeInTheDocument()
+
+      // Error occurs
+      mockEventSource?.simulateError()
+
+      // Events should still be in the DOM
+      expect(screen.getByText('Before error')).toBeInTheDocument()
+      expect(screen.getByText('Searching')).toBeInTheDocument()
+
+      // Event count should still show
+      expect(screen.getByText(/2 events/)).toBeInTheDocument()
+    })
+
+    it('handles rapid connect/disconnect cycles', async () => {
+      const onStatusChange = vi.fn()
+      const { unmount } = render(
+        <AgentFlow url="http://localhost:8080/stream" onStatusChange={onStatusChange} />
+      )
+
+      // Wait for initial connection
+      await vi.advanceTimersByTimeAsync(20)
+
+      // Rapidly unmount and remount (simulates rapid component lifecycle)
+      unmount()
+
+      // Render a new instance
+      const onStatusChange2 = vi.fn()
+      render(<AgentFlow url="http://localhost:8080/stream" onStatusChange={onStatusChange2} />)
+
+      await vi.advanceTimersByTimeAsync(20)
+      expect(onStatusChange2).toHaveBeenCalledWith('connected')
+
+      // Quick unmount again
+      cleanup()
+
+      // Third instance
+      const onStatusChange3 = vi.fn()
+      render(<AgentFlow url="http://localhost:8080/stream" onStatusChange={onStatusChange3} />)
+
+      await vi.advanceTimersByTimeAsync(20)
+      expect(onStatusChange3).toHaveBeenCalledWith('connected')
+    })
+
+    it('shows Connect button after error allows reconnection', async () => {
+      render(<AgentFlow url="http://localhost:8080/stream" autoReconnect={false} />)
+
+      await vi.advanceTimersByTimeAsync(20)
+
+      // Trigger error
+      mockEventSource?.simulateError()
+      await vi.advanceTimersByTimeAsync(50)
+
+      // After error, the component should show error status
+      expect(screen.getByText('error')).toBeInTheDocument()
+    })
+
+    it('calls onError with meaningful error message', async () => {
+      const onError = vi.fn()
+      render(<AgentFlow url="http://localhost:8080/stream" onError={onError} />)
+
+      await vi.advanceTimersByTimeAsync(20)
+
+      mockEventSource?.simulateError()
+
+      expect(onError).toHaveBeenCalledWith(expect.any(Error))
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({
+        message: expect.stringContaining('SSE connection failed'),
+      }))
+    })
+
+    it('handles EventSource that errors immediately on creation', async () => {
+      // Override mock to create an EventSource that errors immediately
+      vi.stubGlobal('EventSource', vi.fn((url: string) => {
+        const es = new MockEventSource(url)
+        // Override to error immediately instead of opening
+        setTimeout(() => {
+          es.onerror?.call(es as any, new Event('error'))
+        }, 5)
+        return es
+      }))
+
+      const onError = vi.fn()
+      const onStatusChange = vi.fn()
+      render(<AgentFlow url="http://localhost:8080/stream" onError={onError} onStatusChange={onStatusChange} />)
+
+      await vi.advanceTimersByTimeAsync(20)
+
+      expect(onStatusChange).toHaveBeenCalledWith('connecting')
+      expect(onStatusChange).toHaveBeenCalledWith('error')
+      expect(onError).toHaveBeenCalled()
+    })
+
+    it('receives multiple events then handles clean close', async () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" />)
+
+      const eventsEl = container.querySelector('.agent-flow__events') as HTMLElement
+      if (eventsEl) {
+        Object.defineProperty(eventsEl, 'clientHeight', { value: 600, configurable: true })
+        Object.defineProperty(eventsEl, 'scrollHeight', { value: 600, configurable: true })
+      }
+
+      await vi.advanceTimersByTimeAsync(20)
+
+      // Stream many events
+      for (let i = 0; i < 10; i++) {
+        mockEventSource?.simulateMessage({
+          type: i === 0 ? 'start' : i === 9 ? 'end' : 'message',
+          message: `Event ${i}`,
+        })
+      }
+      await vi.advanceTimersByTimeAsync(50)
+
+      expect(screen.getByText(/10 events/)).toBeInTheDocument()
+
+      // Clean close (server ends stream)
+      mockEventSource?.close()
+
+      // All events should remain visible
+      expect(screen.getByText('Event 0')).toBeInTheDocument()
+      expect(screen.getByText('Event 9')).toBeInTheDocument()
+      expect(screen.getByText(/10 events/)).toBeInTheDocument()
+    })
+  })
 })
