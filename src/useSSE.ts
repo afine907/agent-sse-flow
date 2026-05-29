@@ -15,6 +15,8 @@ export interface UseSSEOptions {
   autoReconnect?: boolean;
   /** Max reconnect attempts. Default: 10 */
   maxReconnectAttempts?: number;
+  /** Callback for raw SSE data (for recording). Called with the raw JSON string before parsing. */
+  onRawEvent?: (rawData: string) => void;
 }
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
@@ -30,6 +32,7 @@ export function useSSE({
   onStatusChange,
   autoReconnect = true,
   maxReconnectAttempts = 10,
+  onRawEvent,
 }: UseSSEOptions) {
   const [events, setEvents] = useState<FlowEvent[]>([]);
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
@@ -312,6 +315,9 @@ export function useSSE({
 
     eventSource.onmessage = (e) => {
       if (!isMountedRef.current) return;
+
+      // Notify raw event listener (for recording)
+      onRawEvent?.(e.data);
 
       // Use Web Worker for JSON parsing when available
       if (workerReadyRef.current && workerRef.current) {

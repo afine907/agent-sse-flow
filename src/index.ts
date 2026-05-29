@@ -70,3 +70,7 @@ export type { EventCluster } from './event-cluster';
 // Performance analysis
 export { analyzePerformance } from './perf-analyze';
 export type { PerfFinding, PerfAnalysisOptions, PerfAnalysisResult, FindingSeverity } from './perf-analyze';
+
+// Recording
+export { createRecordingBuffer, downloadJSONL, parseJSONL } from './recording';
+export type { RecordingState, RecordingBuffer } from './recording';
