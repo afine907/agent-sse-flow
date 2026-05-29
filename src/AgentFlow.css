@@ -644,13 +644,48 @@
 }
 
 /* =============================================
-   Scroll to Bottom Button
+   Scroll Controls (auto-scroll + scroll-to-bottom)
    ============================================= */
 
-.agent-flow__scroll-bottom {
+.agent-flow__scroll-controls {
   position: absolute;
   bottom: 16px;
   right: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 10; /* Layer 10: scroll controls */
+}
+
+.agent-flow__auto-scroll-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--af-border);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+  background: var(--af-bg-raised);
+  color: var(--af-text-secondary);
+}
+
+.agent-flow__auto-scroll-btn:hover {
+  transform: scale(1.08);
+  background: var(--af-surface);
+  color: var(--af-text);
+}
+
+.agent-flow__auto-scroll-btn--active {
+  background: var(--af-accent-muted);
+  color: var(--af-accent);
+  border-color: var(--af-accent);
+}
+
+.agent-flow__scroll-bottom {
   width: 32px;
   height: 32px;
   border: 1px solid var(--af-border);
@@ -661,7 +696,6 @@
   justify-content: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   transition: transform 0.15s, opacity 0.15s, background 0.15s;
-  z-index: 10; /* Layer 10: scroll-to-bottom button */
   background: var(--af-bg-raised);
   color: var(--af-text-secondary);
 }

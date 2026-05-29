@@ -78,6 +78,7 @@ export function AgentFlow({
   const [enabledTypes, setEnabledTypes] = useState<Set<EventType>>(new Set(ALL_EVENT_TYPES));
   const [showStats, setShowStats] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [autoScroll, setAutoScroll] = useState(true);
   const [highlightedEventId, setHighlightedEventId] = useState<number | null>(null);
   const [currentErrorNavIndex, setCurrentErrorNavIndex] = useState(0);
   const parentRef = useRef<HTMLDivElement>(null);
@@ -124,34 +125,6 @@ export function AgentFlow({
     }
     return counts;
   }, [filteredEvents]);
-
-  // Track error event indices for jump navigation
-  const errorIndices = useMemo(() => {
-    const indices: number[] = [];
-    for (let i = 0; i < typeFilteredEvents.length; i++) {
-      if (typeFilteredEvents[i].type === 'error') {
-        indices.push(i);
-      }
-    }
-    return indices;
-  }, [typeFilteredEvents]);
-
-  // Jump to next error event
-  const jumpToNextError = useCallback(() => {
-    if (errorIndices.length === 0) return;
-    const nextIdx = currentErrorNavIndex % errorIndices.length;
-    const eventIndex = errorIndices[nextIdx];
-    virtualizer.scrollToIndex(eventIndex, { align: 'center' });
-    const eventId = typeFilteredEvents[eventIndex]?.id;
-    if (eventId !== undefined) {
-      setHighlightedEventId(eventId);
-      if (highlightTimerRef.current) {
-        clearTimeout(highlightTimerRef.current);
-      }
-      highlightTimerRef.current = setTimeout(() => setHighlightedEventId(null), 2000);
-    }
-    setCurrentErrorNavIndex(prev => prev + 1);
-  }, [errorIndices, currentErrorNavIndex, virtualizer, typeFilteredEvents]);
 
   // Toggle event type filter
   const toggleEventType = useCallback((type: EventType) => {
@@ -230,7 +203,18 @@ export function AgentFlow({
     clearEvents();
     setCollapsedIds(new Set());
     setExpandedArgsIds(new Set());
+    setCurrentErrorNavIndex(0);
+    setHighlightedEventId(null);
   }, [clearEvents]);
+
+  // Cleanup highlight timer on unmount
+  useEffect(() => {
+    return () => {
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+    };
+  }, []);
 
   // Auto-collapse new events in timeline mode
   useEffect(() => {
@@ -242,6 +226,25 @@ export function AgentFlow({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeFilteredEvents.length]);
+
+  // Track scroll position to disable auto-scroll when user scrolls up
+  useEffect(() => {
+    const el = parentRef.current;
+    if (!el) return;
+
+    const onScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      setShowScrollBottom(!isNearBottom);
+      if (!isNearBottom && autoScroll) {
+        setAutoScroll(false);
+      }
+    };
+
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoScroll]);
 
   // Virtual scrolling with dynamic height measurement
   const virtualizer = useVirtualizer({
@@ -269,25 +272,50 @@ export function AgentFlow({
     getItemKey: (index) => typeFilteredEvents[index]?.id ?? index,
   });
 
-  // Scroll to bottom
+  // Auto-scroll to bottom when new events arrive (if enabled)
+  useEffect(() => {
+    if (autoScroll && typeFilteredEvents.length > 0) {
+      requestAnimationFrame(() => {
+        virtualizer.scrollToIndex(typeFilteredEvents.length - 1, { align: 'end' });
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeFilteredEvents.length, autoScroll]);
+
+  // Scroll to bottom (also re-enables auto-scroll)
   const scrollToBottom = useCallback(() => {
+    setAutoScroll(true);
     virtualizer.scrollToIndex(typeFilteredEvents.length - 1, { align: 'end' });
   }, [virtualizer, typeFilteredEvents.length]);
 
-  // Track scroll position to show/hide scroll-to-bottom button
-  useEffect(() => {
-    const el = parentRef.current;
-    if (!el) return;
+  // Track error event indices for jump navigation
+  const errorIndices = useMemo(() => {
+    const indices: number[] = [];
+    for (let i = 0; i < typeFilteredEvents.length; i++) {
+      if (typeFilteredEvents[i].type === 'error') {
+        indices.push(i);
+      }
+    }
+    return indices;
+  }, [typeFilteredEvents]);
 
-    const onScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = el;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-      setShowScrollBottom(!isNearBottom);
-    };
+  // Jump to next error event
+  const jumpToNextError = useCallback(() => {
+    if (errorIndices.length === 0) return;
+    const nextIdx = currentErrorNavIndex % errorIndices.length;
+    const eventIndex = errorIndices[nextIdx];
+    virtualizer.scrollToIndex(eventIndex, { align: 'center' });
+    const eventId = typeFilteredEvents[eventIndex]?.id;
+    if (eventId !== undefined) {
+      setHighlightedEventId(eventId);
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+      highlightTimerRef.current = setTimeout(() => setHighlightedEventId(null), 2000);
+    }
+    setCurrentErrorNavIndex(prev => prev + 1);
+  }, [errorIndices, currentErrorNavIndex, virtualizer, typeFilteredEvents]);
 
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
-  }, []);
 
   // Determine if any filters are active
   const hasActiveFilters = searchQuery || timeFrom || timeTo || enabledTypes.size !== ALL_EVENT_TYPES.length;
@@ -636,6 +664,7 @@ export function AgentFlow({
                         renderMessage={renderMessage}
                         renderResult={renderResult}
                         onEventClick={setSelectedEvent}
+                        highlighted={highlightedEventId === event.id}
                       />
                     ) : (
                       <EventRow
@@ -645,6 +674,7 @@ export function AgentFlow({
                         renderMessage={renderMessage}
                         renderResult={renderResult}
                         onEventClick={setSelectedEvent}
+                        highlighted={highlightedEventId === event.id}
                       />
                     )}
                   </div>
@@ -653,12 +683,34 @@ export function AgentFlow({
             </div>
           )}
         </div>
-        {showScrollBottom && typeFilteredEvents.length > 0 && (
-          <button className="agent-flow__scroll-bottom" onClick={scrollToBottom} title="Scroll to bottom" type="button">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 5v14M19 12l-7 7-7-7" />
-            </svg>
-          </button>
+        {typeFilteredEvents.length > 0 && (
+          <div className="agent-flow__scroll-controls">
+            <button
+              className={`agent-flow__auto-scroll-btn${autoScroll ? ' agent-flow__auto-scroll-btn--active' : ''}`}
+              onClick={() => setAutoScroll(prev => !prev)}
+              title={autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF'}
+              type="button"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {autoScroll ? (
+                  <>
+                    <path d="M12 19V5M5 12l7-7 7 7" />
+                  </>
+                ) : (
+                  <>
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </>
+                )}
+              </svg>
+            </button>
+            {showScrollBottom && (
+              <button className="agent-flow__scroll-bottom" onClick={scrollToBottom} title="Scroll to bottom" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 5v14M19 12l-7 7-7-7" />
+                </svg>
+              </button>
+            )}
+          </div>
         )}
       </div>
 
