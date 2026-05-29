@@ -63,6 +63,7 @@ export function AgentFlow({
     disconnect,
     clearEvents,
     isSupported,
+    connectionDetails: _connectionDetails,
   } = useSSE({ url, autoConnect, maxEvents, onError, onStatusChange, autoReconnect, maxReconnectAttempts });
 
   const [collapsedIds, setCollapsedIds] = useState<Set<number>>(new Set());
@@ -79,11 +80,14 @@ export function AgentFlow({
   const [showStats, setShowStats] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [relativeTime, setRelativeTime] = useState(false);
   const [highlightedEventId, setHighlightedEventId] = useState<number | null>(null);
   const [currentErrorNavIndex, setCurrentErrorNavIndex] = useState(0);
+  const [showStatusDetails, setShowStatusDetails] = useState(false);
   const parentRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Search filter
@@ -180,6 +184,18 @@ export function AgentFlow({
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, [exportOpen]);
+
+  // Close status details dropdown on outside click
+  useEffect(() => {
+    if (!showStatusDetails) return;
+    const onClick = (e: MouseEvent) => {
+      if (statusRef.current && !statusRef.current.contains(e.target as Node)) {
+        setShowStatusDetails(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [showStatusDetails]);
 
   const toggleCollapse = useCallback((id: number) => {
     setCollapsedIds(prev => {
@@ -351,10 +367,50 @@ export function AgentFlow({
       {/* Header */}
       <div className="agent-flow__header">
         <div className="agent-flow__header-left">
-          <span className="agent-flow__status">
-            <span className={`agent-flow__status-dot agent-flow__status-dot--${status}`} />
-            {status}
-          </span>
+          <div className="agent-flow__status-wrapper" ref={statusRef}>
+            <button
+              className={`agent-flow__status agent-flow__status--clickable${showStatusDetails ? ' agent-flow__status--active' : ''}`}
+              onClick={() => setShowStatusDetails(prev => !prev)}
+              title="Connection details"
+              type="button"
+            >
+              <span className={`agent-flow__status-dot agent-flow__status-dot--${status}`} />
+              {status}
+            </button>
+            {showStatusDetails && (
+              <div className="agent-flow__status-dropdown">
+                <div className="agent-flow__status-detail-row">
+                  <span className="agent-flow__status-detail-label">URL</span>
+                  <span className="agent-flow__status-detail-value agent-flow__status-detail-value--mono">{connectionDetails.url}</span>
+                </div>
+                <div className="agent-flow__status-detail-row">
+                  <span className="agent-flow__status-detail-label">Status</span>
+                  <span className="agent-flow__status-detail-value">
+                    <span className={`agent-flow__status-dot agent-flow__status-dot--${status}`} style={{ display: 'inline-block', width: 6, height: 6, marginRight: 4 }} />
+                    {status}
+                  </span>
+                </div>
+                {connectionDetails.connectedAt && (
+                  <div className="agent-flow__status-detail-row">
+                    <span className="agent-flow__status-detail-label">Connected</span>
+                    <span className="agent-flow__status-detail-value">{new Date(connectionDetails.connectedAt).toLocaleTimeString()}</span>
+                  </div>
+                )}
+                {connectionDetails.reconnectAttempts > 0 && (
+                  <div className="agent-flow__status-detail-row">
+                    <span className="agent-flow__status-detail-label">Reconnects</span>
+                    <span className="agent-flow__status-detail-value">{connectionDetails.reconnectAttempts}</span>
+                  </div>
+                )}
+                {connectionDetails.lastErrorMessage && (
+                  <div className="agent-flow__status-detail-row">
+                    <span className="agent-flow__status-detail-label">Last Error</span>
+                    <span className="agent-flow__status-detail-value agent-flow__status-detail-value--error">{connectionDetails.lastErrorMessage}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <span className="agent-flow__event-count">
             {hasActiveFilters ? `${typeFilteredEvents.length}/${filteredEvents.length}` : filteredEvents.length} events
           </span>
@@ -481,6 +537,20 @@ export function AgentFlow({
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
+            </svg>
+          </button>
+
+          {/* Relative time toggle */}
+          <button
+            className={`agent-flow__header-btn${relativeTime ? ' agent-flow__header-btn--active' : ''}`}
+            onClick={() => setRelativeTime(prev => !prev)}
+            title={relativeTime ? 'Showing relative time' : 'Showing absolute time'}
+            type="button"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+              <line x1="4" y1="4" x2="20" y2="20" />
             </svg>
           </button>
 
@@ -665,6 +735,7 @@ export function AgentFlow({
                         renderResult={renderResult}
                         onEventClick={setSelectedEvent}
                         highlighted={highlightedEventId === event.id}
+                        relativeTime={relativeTime}
                       />
                     ) : (
                       <EventRow
@@ -675,6 +746,7 @@ export function AgentFlow({
                         renderResult={renderResult}
                         onEventClick={setSelectedEvent}
                         highlighted={highlightedEventId === event.id}
+                        relativeTime={relativeTime}
                       />
                     )}
                   </div>

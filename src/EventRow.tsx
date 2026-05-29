@@ -1,7 +1,7 @@
 import { memo, useCallback, forwardRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { FlowEvent, EventType } from './types';
-import { formatTime, copyToClipboard, generateCurlCommand, EVENT_DOT_COLORS, getSummary } from './utils';
+import { formatTime, formatRelativeTime, copyToClipboard, generateCurlCommand, EVENT_DOT_COLORS, getSummary } from './utils';
 
 /** SVG icon paths by event type (Lucide-style, 24x24 viewBox) */
 const ICON_PATHS: Record<EventType, string> = {
@@ -59,6 +59,8 @@ interface RowProps {
   onEventClick?: (event: FlowEvent) => void;
   /** Whether this event is currently highlighted (e.g. after jump-to-error) */
   highlighted?: boolean;
+  /** Whether to display relative time instead of absolute time */
+  relativeTime?: boolean;
 }
 
 /** EventRow — list/card view */
@@ -71,10 +73,11 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
     onToggleArgs,
     onEventClick,
     highlighted,
+    relativeTime: useRelativeTime = false,
   },
   ref,
 ) {
-  const time = event.timestamp ? formatTime(event.timestamp) : null;
+  const time = event.timestamp ? (useRelativeTime ? formatRelativeTime(event.timestamp) : formatTime(event.timestamp)) : null;
 
   return (
     <div
@@ -160,10 +163,11 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
     onToggleArgs,
     onEventClick,
     highlighted,
+    relativeTime: useRelativeTime = false,
   },
   ref,
 ) {
-  const time = event.timestamp ? formatTime(event.timestamp) : null;
+  const time = event.timestamp ? (useRelativeTime ? formatRelativeTime(event.timestamp) : formatTime(event.timestamp)) : null;
 
   return (
     <div
