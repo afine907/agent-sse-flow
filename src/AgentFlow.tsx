@@ -14,6 +14,7 @@ import './AgentFlow.css';
 import type { AgentFlowProps, FlowEvent, EventType, ViewMode } from './types';
 import { useVisibleRows } from './useVisibleRows';
 import { createT } from './i18n';
+import { playErrorSound, playConnectedSound, playDisconnectedSound, playSearchCompleteSound } from './sounds';
 
 /** A virtual list item: either a group header or an event */
 interface GroupHeaderItem {
@@ -146,6 +147,7 @@ export function AgentFlow({
   style,
   customTheme,
   locale = 'en',
+  enableSounds = false,
 }: AgentFlowProps) {
   const t = useMemo(() => createT(locale), [locale]);
   const {
@@ -582,6 +584,36 @@ export function AgentFlow({
       }
     };
   }, []);
+
+  // Sound feedback: play on error events
+  useEffect(() => {
+    if (!enableSounds) return;
+    const lastEvent = filteredEvents[filteredEvents.length - 1];
+    if (lastEvent?.type === 'error') {
+      playErrorSound();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredEvents.length, enableSounds]);
+
+  // Sound feedback: play on connection status change
+  useEffect(() => {
+    if (!enableSounds) return;
+    if (status === 'connected') {
+      playConnectedSound();
+    } else if (status === 'disconnected' || status === 'error') {
+      playDisconnectedSound();
+    }
+  }, [status, enableSounds]);
+
+  // Sound feedback: play when search completes with results
+  useEffect(() => {
+    if (!enableSounds || !searchQuery.trim()) return;
+    // Small delay to avoid playing on every keystroke
+    const timer = setTimeout(() => {
+      playSearchCompleteSound();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, enableSounds]);
 
   // Auto-collapse new events in timeline mode
   useEffect(() => {

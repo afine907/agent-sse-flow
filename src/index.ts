@@ -21,6 +21,9 @@ export { EventRow, TimelineRow, AgentAvatar, WaterfallBar, SyntaxHighlight } fro
 export type { Locale, TranslationKey } from './i18n';
 export { createT } from './i18n';
 
+// Sound feedback
+export { playErrorSound, playConnectedSound, playDisconnectedSound, playSearchCompleteSound } from './sounds';
+
 // Types
 export type {
   AgentFlowProps,
