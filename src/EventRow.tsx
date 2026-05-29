@@ -256,7 +256,10 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
   },
   ref,
 ) {
-  const time = event.timestamp ? (useRelativeTime ? formatRelativeTime(event.timestamp) : formatTime(event.timestamp)) : null;
+  const time = useMemo(
+    () => event.timestamp ? (useRelativeTime ? formatRelativeTime(event.timestamp) : formatTime(event.timestamp)) : null,
+    [event.timestamp, useRelativeTime],
+  );
 
   return (
     <div

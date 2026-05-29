@@ -7,7 +7,7 @@
  * SSR-safe: gracefully degrades when EventSource is unavailable.
  */
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo, memo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import './AgentFlow.css';
 
@@ -38,6 +38,79 @@ import { exportToJSON, exportToCSV, copyToClipboard, EVENT_DOT_COLORS } from './
 
 /** All event types for filter checkboxes */
 const ALL_EVENT_TYPES: EventType[] = ['start', 'thinking', 'tool_call', 'tool_result', 'message', 'error', 'end'];
+
+/**
+ * Memoized EventRow wrapper that binds event-id-specific callbacks.
+ * Without this, inline arrow functions in the parent would create new
+ * references every render, defeating EventRow's React.memo.
+ */
+const MemoizedEventRow = memo(function MemoizedEventRow({
+  event,
+  collapsedIds,
+  expandedArgsIds,
+  bookmarkedIds,
+  highlightedEventId,
+  relativeTime,
+  renderMessage,
+  renderResult,
+  viewMode,
+  onToggleCollapse,
+  onToggleArgs,
+  onToggleBookmark,
+  onEventClick,
+}: {
+  event: FlowEvent;
+  collapsedIds: Set<number>;
+  expandedArgsIds: Set<number>;
+  bookmarkedIds: Set<number>;
+  highlightedEventId: number | null;
+  relativeTime: boolean;
+  renderMessage?: (message: string) => React.ReactNode;
+  renderResult?: (result: string) => React.ReactNode;
+  viewMode: 'list' | 'timeline';
+  onToggleCollapse: (id: number) => void;
+  onToggleArgs: (id: number) => void;
+  onToggleBookmark: (id: number) => void;
+  onEventClick: (event: FlowEvent) => void;
+}) {
+  const handleToggle = useCallback(() => onToggleCollapse(event.id), [onToggleCollapse, event.id]);
+  const handleToggleArgs = useCallback(() => onToggleArgs(event.id), [onToggleArgs, event.id]);
+  const handleToggleBookmark = useCallback(() => onToggleBookmark(event.id), [onToggleBookmark, event.id]);
+
+  if (viewMode === 'timeline') {
+    return (
+      <TimelineRow
+        event={event}
+        collapsed={collapsedIds.has(event.id)}
+        onToggle={handleToggle}
+        showArgs={expandedArgsIds.has(event.id)}
+        onToggleArgs={handleToggleArgs}
+        renderMessage={renderMessage}
+        renderResult={renderResult}
+        onEventClick={onEventClick}
+        highlighted={highlightedEventId === event.id}
+        relativeTime={relativeTime}
+        bookmarked={bookmarkedIds.has(event.id)}
+        onToggleBookmark={handleToggleBookmark}
+      />
+    );
+  }
+
+  return (
+    <EventRow
+      event={event}
+      showArgs={expandedArgsIds.has(event.id)}
+      onToggleArgs={handleToggleArgs}
+      renderMessage={renderMessage}
+      renderResult={renderResult}
+      onEventClick={onEventClick}
+      highlighted={highlightedEventId === event.id}
+      relativeTime={relativeTime}
+      bookmarked={bookmarkedIds.has(event.id)}
+      onToggleBookmark={handleToggleBookmark}
+    />
+  );
+});
 
 /**
  * AgentFlow component
@@ -426,8 +499,11 @@ export function AgentFlow({
   }, [errorIndices, currentErrorNavIndex, virtualizer, virtualListItems]);
 
 
-  // Determine if any filters are active
-  const hasActiveFilters = searchQuery || timeFrom || timeTo || enabledTypes.size !== ALL_EVENT_TYPES.length || showBookmarkedOnly;
+  // Determine if any filters are active (memoized)
+  const hasActiveFilters = useMemo(
+    () => searchQuery || timeFrom || timeTo || enabledTypes.size !== ALL_EVENT_TYPES.length || showBookmarkedOnly,
+    [searchQuery, timeFrom, timeTo, enabledTypes, showBookmarkedOnly],
+  );
 
   // SSR fallback
   if (!isSupported) {
@@ -894,35 +970,21 @@ export function AgentFlow({
                     data-index={virtualRow.index}
                     ref={virtualizer.measureElement}
                   >
-                    {viewMode === 'timeline' ? (
-                      <TimelineRow
-                        event={event}
-                        collapsed={collapsedIds.has(event.id)}
-                        onToggle={() => toggleCollapse(event.id)}
-                        showArgs={expandedArgsIds.has(event.id)}
-                        onToggleArgs={() => toggleArgs(event.id)}
-                        renderMessage={renderMessage}
-                        renderResult={renderResult}
-                        onEventClick={setSelectedEvent}
-                        highlighted={highlightedEventId === event.id}
-                        relativeTime={relativeTime}
-                        bookmarked={bookmarkedIds.has(event.id)}
-                        onToggleBookmark={() => toggleBookmark(event.id)}
-                      />
-                    ) : (
-                      <EventRow
-                        event={event}
-                        showArgs={expandedArgsIds.has(event.id)}
-                        onToggleArgs={() => toggleArgs(event.id)}
-                        renderMessage={renderMessage}
-                        renderResult={renderResult}
-                        onEventClick={setSelectedEvent}
-                        highlighted={highlightedEventId === event.id}
-                        relativeTime={relativeTime}
-                        bookmarked={bookmarkedIds.has(event.id)}
-                        onToggleBookmark={() => toggleBookmark(event.id)}
-                      />
-                    )}
+                    <MemoizedEventRow
+                      event={event}
+                      collapsedIds={collapsedIds}
+                      expandedArgsIds={expandedArgsIds}
+                      bookmarkedIds={bookmarkedIds}
+                      highlightedEventId={highlightedEventId}
+                      relativeTime={relativeTime}
+                      renderMessage={renderMessage}
+                      renderResult={renderResult}
+                      viewMode={viewMode}
+                      onToggleCollapse={toggleCollapse}
+                      onToggleArgs={toggleArgs}
+                      onToggleBookmark={toggleBookmark}
+                      onEventClick={setSelectedEvent}
+                    />
                   </div>
                 );
               })}
