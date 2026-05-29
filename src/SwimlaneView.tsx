@@ -17,7 +17,7 @@ function buildLanes(events: FlowEvent[]): Lane[] {
   return Array.from(m.values());
 }
 
-export const SwimlaneView = memo(function SwimlaneView({ events, theme }: { events: FlowEvent[]; theme: 'dark' | 'light' }) {
+export const SwimlaneView = memo(function SwimlaneView({ events }: { events: FlowEvent[]; theme: 'dark' | 'light' }) {
   const ref = useRef<HTMLDivElement>(null);
   const lanes = useMemo(() => buildLanes(events), [events]);
   const tr = useMemo(() => {
