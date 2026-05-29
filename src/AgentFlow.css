@@ -112,6 +112,90 @@
   color: var(--af-text-secondary);
 }
 
+/* Status wrapper and clickable status */
+.agent-flow__status-wrapper {
+  position: relative;
+}
+
+.agent-flow__status--clickable {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--af-radius-sm);
+  font-family: var(--af-font);
+  transition: background 0.15s, color 0.15s;
+}
+
+.agent-flow__status--clickable:hover {
+  background: var(--af-bg-hover);
+  color: var(--af-text);
+}
+
+.agent-flow__status--active {
+  background: var(--af-accent-muted);
+  color: var(--af-accent);
+}
+
+/* Status details dropdown */
+.agent-flow__status-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 260px;
+  padding: 8px;
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius-sm);
+  background: var(--af-bg-raised);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 30;
+  animation: status-dropdown-in 0.12s ease;
+}
+
+@keyframes status-dropdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.agent-flow__status-detail-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 4px;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.agent-flow__status-detail-row + .agent-flow__status-detail-row {
+  border-top: 1px solid var(--af-border-subtle);
+}
+
+.agent-flow__status-detail-label {
+  flex-shrink: 0;
+  width: 80px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+  color: var(--af-text-tertiary);
+}
+
+.agent-flow__status-detail-value {
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+  color: var(--af-text-secondary);
+}
+
+.agent-flow__status-detail-value--mono {
+  font-family: var(--af-mono);
+  font-size: 11px;
+}
+
+.agent-flow__status-detail-value--error {
+  color: #ef4444;
+}
+
 .agent-flow__event-count {
   font-size: 11.5px;
   color: var(--af-text-tertiary);
@@ -337,6 +421,40 @@
   color: var(--af-text-tertiary);
   font-family: var(--af-mono);
   font-weight: 400;
+}
+
+.agent-flow__duration-bar {
+  display: inline-flex;
+  align-items: center;
+  width: 48px;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.agent-flow--dark .agent-flow__duration-bar {
+  background: rgba(245, 158, 11, 0.15);
+}
+
+.agent-flow--light .agent-flow__duration-bar {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.agent-flow__duration-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  min-width: 2px;
+  transition: width 0.2s ease;
+}
+
+.agent-flow--dark .agent-flow__duration-bar-fill {
+  background: #f59e0b;
+}
+
+.agent-flow--light .agent-flow__duration-bar-fill {
+  background: #d97706;
 }
 
 .agent-flow__cost,

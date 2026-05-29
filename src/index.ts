@@ -27,4 +27,5 @@ export type {
   EventStatus,
   SSEStats,
   UseSSEReturn,
+  ConnectionDetails,
 } from './types';

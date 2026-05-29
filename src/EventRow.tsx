@@ -107,6 +107,14 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
           {event.duration !== undefined && (
             <span className="agent-flow__duration">{event.duration}ms</span>
           )}
+          {(event.type === 'tool_call' || event.type === 'tool_result') && event.duration !== undefined && (
+            <span className="agent-flow__duration-bar">
+              <span
+                className="agent-flow__duration-bar-fill"
+                style={{ width: `${Math.min((event.duration / 5000) * 100, 100)}%` }}
+              />
+            </span>
+          )}
           {time && <span className="agent-flow__event-time">{time}</span>}
         </div>
         {event.message && (
@@ -193,6 +201,14 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
           <EventIcon type={event.type} />
           <span className="agent-flow__timeline-label">{event.type}</span>
           <span className="agent-flow__timeline-summary">{getSummary(event)}</span>
+          {(event.type === 'tool_call' || event.type === 'tool_result') && event.duration !== undefined && (
+            <span className="agent-flow__duration-bar">
+              <span
+                className="agent-flow__duration-bar-fill"
+                style={{ width: `${Math.min((event.duration / 5000) * 100, 100)}%` }}
+              />
+            </span>
+          )}
           {time && <span className="agent-flow__event-time">{time}</span>}
           {onEventClick && (
             <button
