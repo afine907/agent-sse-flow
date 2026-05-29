@@ -1095,23 +1095,45 @@
   color: var(--af-text-secondary);
 }
 
+/* Detail wrapper: CSS grid trick for smooth height transition
+ * Uses grid-template-rows: 0fr -> 1fr so the browser interpolates
+ * height naturally without needing a fixed max-height hack. */
+.agent-flow__timeline-detail-wrapper {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.25s ease, opacity 0.2s ease;
+  overflow: hidden;
+  opacity: 1;
+}
+
+.agent-flow__timeline-detail-wrapper--collapsed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+.agent-flow__timeline-detail-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
 /* Detail (expanded content) */
 .agent-flow__timeline-detail {
   margin-top: 6px;
   padding: 8px 0 4px 2px;
-  animation: timeline-expand 0.15s ease;
   backface-visibility: hidden;
 }
 
-@keyframes timeline-expand {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Staggered animation when multiple items expand at once.
+ * Uses nth-child to add incremental delays for a cascade effect. */
+.agent-flow__timeline-item:nth-child(1) .agent-flow__timeline-detail-wrapper { transition-delay: 0ms; }
+.agent-flow__timeline-item:nth-child(2) .agent-flow__timeline-detail-wrapper { transition-delay: 30ms; }
+.agent-flow__timeline-item:nth-child(3) .agent-flow__timeline-detail-wrapper { transition-delay: 60ms; }
+.agent-flow__timeline-item:nth-child(4) .agent-flow__timeline-detail-wrapper { transition-delay: 90ms; }
+.agent-flow__timeline-item:nth-child(5) .agent-flow__timeline-detail-wrapper { transition-delay: 120ms; }
+
+/* Collapse: no stagger (instant feel for closing) */
+.agent-flow__timeline-detail-wrapper--collapsed {
+  transition-delay: 0ms;
 }
 
 /* Type label colors */
