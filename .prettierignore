@@ -1,0 +1,7 @@
+dist/
+node_modules/
+storybook-static/
+playwright-report/
+coverage/
+pnpm-lock.yaml
+*.md
