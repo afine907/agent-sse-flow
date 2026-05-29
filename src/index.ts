@@ -15,7 +15,7 @@ export { AgentFlow } from './AgentFlow';
 export { useSSE } from './useSSE';
 
 // Sub-components
-export { EventRow, TimelineRow, AgentAvatar } from './EventRow';
+export { EventRow, TimelineRow, AgentAvatar, SyntaxHighlight } from './EventRow';
 
 // Types
 export type {

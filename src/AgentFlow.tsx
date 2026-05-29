@@ -33,7 +33,7 @@ interface EventItem {
 type VirtualListItem = GroupHeaderItem | EventItem;
 import { useSSE } from './useSSE';
 import { EventRow, TimelineRow, AgentAvatar } from './EventRow';
-import { exportToJSON, exportToCSV, copyToClipboard, EVENT_DOT_COLORS } from './utils';
+import { exportToJSON, exportToCSV, copyToClipboard, generateCurlCommand, EVENT_DOT_COLORS } from './utils';
 
 // Note: AgentFlowProps, EventRow, TimelineRow, useSSE are exported from index.ts
 // This avoids duplicate re-exports that could interfere with tree-shaking
@@ -197,6 +197,8 @@ export function AgentFlow({
   const [componentHeight, setComponentHeight] = useState<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const isResizing = useRef(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; event: FlowEvent } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   // Search filter
   const searchFilteredEvents = useMemo(() => {
@@ -417,6 +419,33 @@ export function AgentFlow({
     document.body.style.cursor = 'ns-resize';
     document.body.style.userSelect = 'none';
   }, []);
+
+  // Context menu handler for event rows
+  const handleContextMenu = useCallback((e: React.MouseEvent, event: FlowEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, event });
+  }, []);
+
+  // Close context menu on outside click or scroll
+  useEffect(() => {
+    if (!contextMenu) return;
+    const onClick = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    const onScroll = () => setContextMenu(null);
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setContextMenu(null); };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('scroll', onScroll, true);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('scroll', onScroll, true);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [contextMenu]);
 
   const toggleCollapse = useCallback((id: number) => {
     setCollapsedIds(prev => {
@@ -1126,6 +1155,7 @@ export function AgentFlow({
                     }}
                     data-index={virtualRow.index}
                     ref={rowRef}
+                    onContextMenu={(e) => handleContextMenu(e, event)}
                   >
                     {visible ? (
                       <MemoizedEventRow
@@ -1260,6 +1290,88 @@ export function AgentFlow({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          className={`agent-flow__context-menu agent-flow__context-menu--${theme}`}
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          role="menu"
+        >
+          <button
+            className="agent-flow__context-menu-item"
+            onClick={() => {
+              copyToClipboard(JSON.stringify(contextMenu.event, null, 2));
+              setContextMenu(null);
+            }}
+            role="menuitem"
+            type="button"
+          >
+            Copy event JSON
+          </button>
+          {contextMenu.event.type === 'tool_call' && (
+            <button
+              className="agent-flow__context-menu-item"
+              onClick={() => {
+                copyToClipboard(generateCurlCommand(contextMenu.event));
+                setContextMenu(null);
+              }}
+              role="menuitem"
+              type="button"
+            >
+              Copy as cURL
+            </button>
+          )}
+          <button
+            className="agent-flow__context-menu-item"
+            onClick={() => {
+              toggleBookmark(contextMenu.event.id);
+              setContextMenu(null);
+            }}
+            role="menuitem"
+            type="button"
+          >
+            {bookmarkedIds.has(contextMenu.event.id) ? 'Unbookmark' : 'Bookmark'}
+          </button>
+          {contextMenu.event.agentName && (
+            <button
+              className="agent-flow__context-menu-item"
+              onClick={() => {
+                setSelectedAgent(contextMenu.event.agentName || null);
+                setContextMenu(null);
+              }}
+              role="menuitem"
+              type="button"
+            >
+              Filter by agent: {contextMenu.event.agentName}
+            </button>
+          )}
+          <button
+            className="agent-flow__context-menu-item"
+            onClick={() => {
+              setEnabledTypes(new Set([contextMenu.event.type]));
+              setContextMenu(null);
+            }}
+            role="menuitem"
+            type="button"
+          >
+            Filter by type: {contextMenu.event.type}
+          </button>
+          <div className="agent-flow__context-menu-separator" />
+          <button
+            className="agent-flow__context-menu-item"
+            onClick={() => {
+              setSelectedEvent(contextMenu.event);
+              setContextMenu(null);
+            }}
+            role="menuitem"
+            type="button"
+          >
+            Show details
+          </button>
         </div>
       )}
 

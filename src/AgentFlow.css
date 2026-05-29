@@ -2247,3 +2247,89 @@
 .agent-flow--compact .agent-flow__bookmark-btn {
   display: none;
 }
+
+/* =============================================
+   Context Menu
+   ============================================= */
+
+.agent-flow__context-menu {
+  position: fixed;
+  min-width: 180px;
+  padding: 4px;
+  border-radius: var(--af-radius-sm);
+  z-index: 40;
+  animation: context-menu-in 0.1s ease;
+  backface-visibility: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes context-menu-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.agent-flow__context-menu--dark {
+  background: var(--af-bg-raised);
+  border: 1px solid var(--af-border);
+}
+
+.agent-flow__context-menu--light {
+  background: var(--af-bg);
+  border: 1px solid var(--af-border);
+}
+
+.agent-flow__context-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--af-font);
+  text-align: left;
+  color: var(--af-text);
+  background: transparent;
+  transition: background 0.1s;
+  white-space: nowrap;
+}
+
+.agent-flow__context-menu-item:hover {
+  background: var(--af-bg-hover);
+}
+
+.agent-flow__context-menu-separator {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--af-border);
+}
+
+/* =============================================
+   JSON Syntax Highlighting
+   ============================================= */
+
+/* Keys (amber) */
+.af-syn--key {
+  color: #f59e0b;
+}
+
+/* String values (green) */
+.af-syn--string {
+  color: #10b981;
+}
+
+/* Number values (blue) */
+.af-syn--num {
+  color: #3b82f6;
+}
+
+/* Boolean values (purple) */
+.af-syn--bool {
+  color: #8b5cf6;
+}
+
+/* Null value (gray) */
+.af-syn--null {
+  color: #6b7280;
+  font-style: italic;
+}
