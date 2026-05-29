@@ -17,6 +17,10 @@ export { useSSE } from './useSSE';
 // Sub-components
 export { EventRow, TimelineRow, AgentAvatar, WaterfallBar, SyntaxHighlight } from './EventRow';
 
+// i18n
+export type { Locale, TranslationKey } from './i18n';
+export { createT } from './i18n';
+
 // Types
 export type {
   AgentFlowProps,

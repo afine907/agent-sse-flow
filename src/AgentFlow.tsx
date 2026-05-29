@@ -1208,7 +1208,7 @@ export function AgentFlow({
         <div className="agent-flow__stats">
           <div className="agent-flow__stats-row">
             <span className="agent-flow__stats-item">
-              <span className="agent-flow__stats-label">Total</span>
+              <span className="agent-flow__stats-label">{t('stats.total')}</span>
               <span className="agent-flow__stats-value">{filteredEvents.length}</span>
             </span>
             {ALL_EVENT_TYPES.map(type => (
@@ -1220,19 +1220,19 @@ export function AgentFlow({
             ))}
             {stats.totalCost > 0 && (
               <span className="agent-flow__stats-item">
-                <span className="agent-flow__stats-label">Cost</span>
+                <span className="agent-flow__stats-label">{t('stats.cost')}</span>
                 <span className="agent-flow__stats-value">${stats.totalCost.toFixed(4)}</span>
               </span>
             )}
             {stats.totalTokens > 0 && (
               <span className="agent-flow__stats-item">
-                <span className="agent-flow__stats-label">Tokens</span>
+                <span className="agent-flow__stats-label">{t('stats.tokens')}</span>
                 <span className="agent-flow__stats-value">{stats.totalTokens.toLocaleString()}</span>
               </span>
             )}
             {stats.agents.length > 0 && (
               <span className="agent-flow__stats-item">
-                <span className="agent-flow__stats-label">Agents</span>
+                <span className="agent-flow__stats-label">{t('stats.agents')}</span>
                 <span className="agent-flow__stats-value">{stats.agents.length}</span>
               </span>
             )}
@@ -1397,9 +1397,9 @@ export function AgentFlow({
             <button
               className={`agent-flow__auto-scroll-btn${autoScroll ? ' agent-flow__auto-scroll-btn--active' : ''}`}
               onClick={() => setAutoScroll(prev => !prev)}
-              title={autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF'}
+              title={autoScroll ? t('scroll.autoScrollOn') : t('scroll.autoScrollOff')}
               type="button"
-              aria-label={autoScroll ? 'Disable auto-scroll' : 'Enable auto-scroll'}
+              aria-label={autoScroll ? t('scroll.autoScrollOff') : t('scroll.autoScrollOn')}
               aria-pressed={autoScroll}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1415,7 +1415,7 @@ export function AgentFlow({
               </svg>
             </button>
             {showScrollBottom && (
-              <button className="agent-flow__scroll-bottom" onClick={scrollToBottom} title="Scroll to bottom" type="button" aria-label="Scroll to bottom">
+              <button className="agent-flow__scroll-bottom" onClick={scrollToBottom} title={t('scroll.scrollToBottom')} type="button" aria-label={t('scroll.scrollToBottom')}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 5v14M19 12l-7 7-7-7" />
                 </svg>
@@ -1430,14 +1430,14 @@ export function AgentFlow({
         <div className="agent-flow__modal-overlay" onClick={() => setSelectedEvent(null)} role="dialog" aria-modal="true" aria-label="Event detail">
           <div className="agent-flow__modal" onClick={(e) => e.stopPropagation()}>
             <div className="agent-flow__modal-header">
-              <span className="agent-flow__modal-title">Event Detail</span>
+              <span className="agent-flow__modal-title">{t('modal.eventDetail')}</span>
               <div className="agent-flow__modal-actions">
                 <button
                   className="agent-flow__modal-copy"
                   onClick={() => copyToClipboard(JSON.stringify(selectedEvent, null, 2))}
-                  title="Copy JSON"
+                  title={t('modal.copyJSON')}
                   type="button"
-                  aria-label="Copy event JSON"
+                  aria-label={t('action.copyJSON')}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
@@ -1447,9 +1447,9 @@ export function AgentFlow({
                 <button
                   className="agent-flow__modal-close"
                   onClick={() => setSelectedEvent(null)}
-                  title="Close"
+                  title={t('modal.close')}
                   type="button"
-                  aria-label="Close event detail"
+                  aria-label={t('modal.close')}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -1467,16 +1467,16 @@ export function AgentFlow({
 
       {/* Keyboard Shortcuts Help Overlay */}
       {showHelp && (
-        <div className="agent-flow__modal-overlay" onClick={() => setShowHelp(false)} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts help">
+        <div className="agent-flow__modal-overlay" onClick={() => setShowHelp(false)} role="dialog" aria-modal="true" aria-label={t('help.title')}>
           <div className="agent-flow__help-modal" onClick={(e) => e.stopPropagation()}>
             <div className="agent-flow__modal-header">
-              <span className="agent-flow__modal-title">Keyboard Shortcuts</span>
+              <span className="agent-flow__modal-title">{t('help.title')}</span>
               <button
                 className="agent-flow__modal-close"
                 onClick={() => setShowHelp(false)}
-                title="Close"
+                title={t('modal.close')}
                 type="button"
-                aria-label="Close help"
+                aria-label={t('modal.close')}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -1489,19 +1489,19 @@ export function AgentFlow({
                 <span className="agent-flow__help-keys">
                   <kbd>Ctrl</kbd><span>+</span><kbd>K</kbd>
                 </span>
-                <span className="agent-flow__help-desc">Search events</span>
+                <span className="agent-flow__help-desc">{t('help.searchEvents')}</span>
               </div>
               <div className="agent-flow__help-row">
                 <span className="agent-flow__help-keys">
                   <kbd>?</kbd>
                 </span>
-                <span className="agent-flow__help-desc">Toggle this help panel</span>
+                <span className="agent-flow__help-desc">{t('help.toggleHelp')}</span>
               </div>
               <div className="agent-flow__help-row">
                 <span className="agent-flow__help-keys">
                   <kbd>Esc</kbd>
                 </span>
-                <span className="agent-flow__help-desc">Close panels</span>
+                <span className="agent-flow__help-desc">{t('help.closePanels')}</span>
               </div>
             </div>
           </div>
@@ -1525,7 +1525,7 @@ export function AgentFlow({
             role="menuitem"
             type="button"
           >
-            Copy event JSON
+            {t('action.copyJSON')}
           </button>
           {contextMenu.event.type === 'tool_call' && (
             <button
@@ -1537,7 +1537,7 @@ export function AgentFlow({
               role="menuitem"
               type="button"
             >
-              Copy as cURL
+              {t('action.copyCurl')}
             </button>
           )}
           <button
@@ -1549,7 +1549,7 @@ export function AgentFlow({
             role="menuitem"
             type="button"
           >
-            {bookmarkedIds.has(contextMenu.event.id) ? 'Unbookmark' : 'Bookmark'}
+            {bookmarkedIds.has(contextMenu.event.id) ? t('action.unbookmark') : t('action.bookmark')}
           </button>
           {contextMenu.event.agentName && (
             <button
@@ -1561,7 +1561,7 @@ export function AgentFlow({
               role="menuitem"
               type="button"
             >
-              Filter by agent: {contextMenu.event.agentName}
+              {t('action.filterByAgent')}: {contextMenu.event.agentName}
             </button>
           )}
           <button
@@ -1573,7 +1573,7 @@ export function AgentFlow({
             role="menuitem"
             type="button"
           >
-            Filter by type: {contextMenu.event.type}
+            {t('action.filterByType')}: {contextMenu.event.type}
           </button>
           <div className="agent-flow__context-menu-separator" />
           <button
@@ -1585,7 +1585,7 @@ export function AgentFlow({
             role="menuitem"
             type="button"
           >
-            Show details
+            {t('action.showDetails')}
           </button>
         </div>
       )}
