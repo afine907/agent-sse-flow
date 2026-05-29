@@ -1769,3 +1769,64 @@
 .agent-flow--unsupported .agent-flow__empty {
   line-height: 1.8;
 }
+
+/* =============================================
+   Truncated Content (Show More)
+   ============================================= */
+
+.agent-flow__truncated {
+  position: relative;
+  overflow: hidden;
+  max-height: 200px;
+}
+
+/* Fade-out gradient at the bottom of truncated content */
+.agent-flow__truncated::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  pointer-events: none;
+}
+
+.agent-flow--dark .agent-flow__truncated::after {
+  background: linear-gradient(to bottom, transparent, var(--af-surface));
+}
+
+.agent-flow--light .agent-flow__truncated::after {
+  background: linear-gradient(to bottom, transparent, var(--af-surface));
+}
+
+/* Result content uses a different background for the gradient */
+.agent-flow__event-result .agent-flow__truncated::after {
+  height: 40px;
+}
+
+.agent-flow--dark .agent-flow__event-result .agent-flow__truncated::after {
+  background: linear-gradient(to bottom, transparent, var(--af-bg));
+}
+
+.agent-flow--light .agent-flow__event-result .agent-flow__truncated::after {
+  background: linear-gradient(to bottom, transparent, var(--af-bg-raised));
+}
+
+.agent-flow__show-more {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: var(--af-mono);
+  color: var(--af-accent);
+  background: var(--af-accent-muted);
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.agent-flow__show-more:hover {
+  opacity: 0.8;
+}
