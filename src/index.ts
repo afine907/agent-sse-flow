@@ -66,3 +66,7 @@ export type { AnalysisResult, AnalysisFinding, AnalysisOptions, AnalyzeCallback 
 // Event clustering
 export { clusterEvents, getClusterColor } from './event-cluster';
 export type { EventCluster } from './event-cluster';
+
+// Performance analysis
+export { analyzePerformance } from './perf-analyze';
+export type { PerfFinding, PerfAnalysisOptions, PerfAnalysisResult, FindingSeverity } from './perf-analyze';

@@ -38,6 +38,7 @@ import { EventRow, TimelineRow, AgentAvatar, WaterfallBar } from './EventRow';
 import { DAGView } from './DAGView';
 import { SwimlaneView } from './SwimlaneView';
 import { exportToJSON, exportToCSV, copyToClipboard, generateCurlCommand, EVENT_DOT_COLORS, formatTime } from './utils';
+import { analyzePerformance } from './perf-analyze';
 
 // Note: AgentFlowProps, EventRow, TimelineRow, useSSE are exported from index.ts
 // This avoids duplicate re-exports that could interfere with tree-shaking
@@ -193,6 +194,7 @@ export function AgentFlow({
   const dragAgentRef = useRef<string | null>(null);
   const [showTokenChart, setShowTokenChart] = useState(false);
   const [showCostDashboard, setShowCostDashboard] = useState(false);
+  const [showPerf, setShowPerf] = useState(false);
   // Merge customTheme CSS variable overrides with the user-supplied style prop
   const mergedStyle = useMemo(
     () => (customTheme ? { ...style, ...customTheme } : style),
@@ -262,6 +264,12 @@ export function AgentFlow({
     }
     return map;
   }, [filteredEvents]);
+
+  // Performance bottleneck analysis (memoized, re-runs when events change)
+  const perfResult = useMemo(
+    () => (showPerf ? analyzePerformance(filteredEvents) : null),
+    [filteredEvents, showPerf],
+  );
 
   // Toggle event type filter
   const toggleEventType = useCallback((type: EventType) => {
@@ -927,6 +935,22 @@ export function AgentFlow({
             </button>
           )}
 
+          {/* Performance analysis toggle */}
+          {filteredEvents.length > 0 && (
+            <button
+              className={`agent-flow__header-btn${showPerf ? ' agent-flow__header-btn--active' : ''}`}
+              onClick={() => setShowPerf(prev => !prev)}
+              title="Toggle performance analysis"
+              type="button"
+              aria-label="Toggle performance analysis"
+              aria-pressed={showPerf}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
+            </button>
+          )}
+
           {/* Compact view toggle */}
           <button
             className={`agent-flow__header-btn${compact ? ' agent-flow__header-btn--active' : ''}`}
@@ -1306,6 +1330,32 @@ export function AgentFlow({
               </span>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Performance analysis panel */}
+      {showPerf && perfResult && (
+        <div className="agent-flow__perf-panel" role="region" aria-label="Performance analysis">
+          <div className="agent-flow__perf-header">
+            <span className="agent-flow__perf-title">Performance Bottlenecks</span>
+            <span className="agent-flow__perf-count">{perfResult.findings.length} finding(s)</span>
+          </div>
+          {perfResult.findings.length === 0 ? (
+            <div className="agent-flow__perf-empty">No performance bottlenecks detected.</div>
+          ) : (
+            <div className="agent-flow__perf-findings">
+              {perfResult.findings.map((finding, i) => (
+                <div key={i} className={`agent-flow__perf-finding agent-flow__perf-finding--${finding.severity}`}>
+                  <span className="agent-flow__perf-severity">{finding.severity}</span>
+                  <span className="agent-flow__perf-category">{finding.category.replace(/_/g, ' ')}</span>
+                  <span className="agent-flow__perf-desc">{finding.description}</span>
+                  {finding.suggestion && (
+                    <span className="agent-flow__perf-suggestion">{finding.suggestion}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
