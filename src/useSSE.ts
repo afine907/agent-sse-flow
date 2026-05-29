@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { FlowEvent, SSEStats, ConnectionDetails } from './types';
 import type { ParsedSSEEvent } from './sse-worker';
+import { validateFlowEvent, formatValidationErrors } from './validate';
 
 export type { SSEStats } from './types';
 
@@ -82,6 +83,16 @@ export function useSSE({
           const data = e.data;
           if (data.type === 'parsed') {
             const parsed: ParsedSSEEvent = data.event;
+            // Validate parsed event against FlowEvent schema
+            const validation = validateFlowEvent(parsed);
+            if (!validation.valid) {
+              console.warn(
+                '[AgentFlow] Malformed event (worker):',
+                formatValidationErrors(validation.errors),
+                '\nRaw data:',
+                parsed,
+              );
+            }
             const event: FlowEvent = {
               id: parsed.id,
               type: parsed.type as FlowEvent['type'],
@@ -229,6 +240,18 @@ export function useSSE({
   const parseOnMainThread = useCallback((rawData: string) => {
     try {
       const raw = JSON.parse(rawData);
+
+      // Validate parsed event against FlowEvent schema
+      const validation = validateFlowEvent(raw);
+      if (!validation.valid) {
+        console.warn(
+          '[AgentFlow] Malformed event:',
+          formatValidationErrors(validation.errors),
+          '\nRaw data:',
+          rawData,
+        );
+      }
+
       let argsJson: string | undefined;
       if (raw.args) {
         try {
