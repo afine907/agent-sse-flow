@@ -387,9 +387,12 @@ function Demo() {
 
 // Performance test page: direct AgentFlow with SSE URL from query param
 function PerfTestPage({ url }: { url: string }) {
+  const params = new URLSearchParams(window.location.search);
+  const theme = (params.get('theme') as 'dark' | 'light') || 'dark';
+  const view = (params.get('view') as 'list' | 'timeline' | 'waterfall') || 'list';
   return (
     <div style={{ height: '100vh' }}>
-      <AgentFlow url={url} theme="dark" maxEvents={100_000} />
+      <AgentFlow url={url} theme={theme} viewMode={view} maxEvents={100_000} />
     </div>
   )
 }
