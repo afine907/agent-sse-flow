@@ -879,6 +879,37 @@
   background: var(--af-accent-muted);
 }
 
+.agent-flow__header-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius-sm);
+  cursor: pointer;
+  color: var(--af-text-secondary);
+  background: transparent;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.agent-flow__header-btn:hover {
+  color: var(--af-text);
+  border-color: var(--af-text-tertiary);
+  background: var(--af-bg-hover);
+}
+
+.agent-flow__header-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.agent-flow__header-btn:disabled:hover {
+  color: var(--af-text-secondary);
+  border-color: var(--af-border);
+  background: transparent;
+}
+
 .agent-flow__search-bar {
   display: flex;
   align-items: center;
