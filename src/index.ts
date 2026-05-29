@@ -50,3 +50,19 @@ export type { UsePollingOptions, UsePollingReturn } from './adapters/polling';
 // Validation
 export { validateFlowEvent, formatValidationErrors } from './validate';
 export type { ValidationError, ValidationResult } from './validate';
+
+// Snapshot store
+export { saveSnapshot, loadAllSnapshots, loadSnapshot, deleteSnapshot, clearAllSnapshots } from './snapshot-store';
+export type { EventSnapshot } from './snapshot-store';
+
+// Event diff
+export { diffEvents } from './event-diff';
+export type { DiffLine, DiffLineType } from './event-diff';
+
+// AI Analysis
+export { prepareEventsForAnalysis, buildAnalysisPrompt } from './ai-analysis';
+export type { AnalysisResult, AnalysisFinding, AnalysisOptions, AnalyzeCallback } from './ai-analysis';
+
+// Event clustering
+export { clusterEvents, getClusterColor } from './event-cluster';
+export type { EventCluster } from './event-cluster';
