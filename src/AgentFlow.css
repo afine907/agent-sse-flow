@@ -7,6 +7,24 @@
  *   z-index: 10  — Scroll-to-bottom button
  *   z-index: 20  — Search bar (reserved)
  *   z-index: 30  — Dropdowns / modals (reserved)
+ *
+ * CSS Performance Strategy (for 100K+ event lists):
+ *   1. CONTAINMENT — Every event row uses `contain: content` to isolate
+ *      layout and paint. Changes inside one row never trigger reflow in
+ *      siblings or ancestors, keeping recalc cost proportional to the
+ *      visible viewport rather than total DOM size.
+ *   2. CONTENT-VISIBILITY — `.agent-flow__event-row` uses
+ *      `content-visibility: auto` so the browser skips paint/composite
+ *      for off-screen rows entirely. Combined with `contain-intrinsic-size`,
+ *      the scrollbar thumb remains accurate without rendering hidden rows.
+ *   3. WILL-CHANGE — Applied to elements that animate transforms on
+ *      every interaction (scroll controls, event rows via virtual scroll).
+ *      This promotes them to their own compositor layer, avoiding repaints
+ *      during scroll. NOT applied to hover-only or one-shot animations
+ *      (modals, dropdowns) to avoid unnecessary layer promotion.
+ *   4. VIRTUAL SCROLLING — Only ~20 rows exist in the DOM at any time
+ *      (via @tanstack/react-virtual). The CSS containment above ensures
+ *      that even the existing rows don't trigger cross-row layout work.
  */
 
 /* =============================================
