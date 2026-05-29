@@ -11,13 +11,17 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import './AgentFlow.css';
 
-import type { AgentFlowProps } from './types';
+import type { AgentFlowProps, FlowEvent, EventType } from './types';
 import { useSSE } from './useSSE';
 import { EventRow, TimelineRow } from './EventRow';
+import { exportToJSON, exportToCSV, copyToClipboard, EVENT_DOT_COLORS } from './utils';
 
 export type { AgentFlowProps } from './types';
 export { EventRow, TimelineRow } from './EventRow';
 export { useSSE } from './useSSE';
+
+/** All event types for filter checkboxes */
+const ALL_EVENT_TYPES: EventType[] = ['start', 'thinking', 'tool_call', 'tool_result', 'message', 'error', 'end'];
 
 /**
  * AgentFlow component
@@ -65,8 +69,15 @@ export function AgentFlow({
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<FlowEvent | null>(null);
+  const [timeFrom, setTimeFrom] = useState('');
+  const [timeTo, setTimeTo] = useState('');
+  const [timeFilterOpen, setTimeFilterOpen] = useState(false);
+  const [enabledTypes, setEnabledTypes] = useState<Set<EventType>>(new Set(ALL_EVENT_TYPES));
   const parentRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   // Search filter
   const searchFilteredEvents = useMemo(() => {
@@ -80,21 +91,52 @@ export function AgentFlow({
     );
   }, [filteredEvents, searchQuery]);
 
-  // Keyboard shortcut for search
+  // Time range filter (applied after search)
+  const timeFilteredEvents = useMemo(() => {
+    if (!timeFrom && !timeTo) return searchFilteredEvents;
+    const fromMs = timeFrom ? new Date(timeFrom).getTime() : 0;
+    const toMs = timeTo ? new Date(timeTo).getTime() : Infinity;
+    return searchFilteredEvents.filter(e => {
+      if (!e.timestamp) return true;
+      return e.timestamp >= fromMs && e.timestamp <= toMs;
+    });
+  }, [searchFilteredEvents, timeFrom, timeTo]);
+
+  // Event type filter (applied after time range)
+  const typeFilteredEvents = useMemo(() => {
+    if (enabledTypes.size === ALL_EVENT_TYPES.length) return timeFilteredEvents;
+    return timeFilteredEvents.filter(e => enabledTypes.has(e.type));
+  }, [timeFilteredEvents, enabledTypes]);
+
+  // Toggle event type filter
+  const toggleEventType = useCallback((type: EventType) => {
+    setEnabledTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }, []);
+
+  // Keyboard shortcut for search; also handle Escape for modal
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setSearchOpen(prev => !prev);
       }
-      if (e.key === 'Escape' && searchOpen) {
-        setSearchOpen(false);
-        setSearchQuery('');
+      if (e.key === 'Escape') {
+        if (selectedEvent) {
+          setSelectedEvent(null);
+        } else if (searchOpen) {
+          setSearchOpen(false);
+          setSearchQuery('');
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [searchOpen]);
+  }, [searchOpen, selectedEvent]);
 
   // Focus search input when opened
   useEffect(() => {
@@ -102,6 +144,18 @@ export function AgentFlow({
       searchInputRef.current.focus();
     }
   }, [searchOpen]);
+
+  // Close export dropdown on outside click
+  useEffect(() => {
+    if (!exportOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setExportOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [exportOpen]);
 
   const toggleCollapse = useCallback((id: number) => {
     setCollapsedIds(prev => {
@@ -123,21 +177,21 @@ export function AgentFlow({
 
   // Auto-collapse new events in timeline mode
   useEffect(() => {
-    if (viewMode === 'timeline' && defaultCollapsed && searchFilteredEvents.length > 0) {
-      const latest = searchFilteredEvents[searchFilteredEvents.length - 1];
+    if (viewMode === 'timeline' && defaultCollapsed && typeFilteredEvents.length > 0) {
+      const latest = typeFilteredEvents[typeFilteredEvents.length - 1];
       if (!collapsedIds.has(latest.id)) {
         setCollapsedIds(prev => new Set(prev).add(latest.id));
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchFilteredEvents.length]);
+  }, [typeFilteredEvents.length]);
 
   // Virtual scrolling with dynamic height measurement
   const virtualizer = useVirtualizer({
-    count: searchFilteredEvents.length,
+    count: typeFilteredEvents.length,
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => {
-      const event = searchFilteredEvents[index];
+      const event = typeFilteredEvents[index];
       if (!event) return 80;
       // Dynamic estimate based on event type
       if (event.type === 'tool_call' && event.argsJson) {
@@ -155,13 +209,13 @@ export function AgentFlow({
       return 80;
     },
     overscan: 5,
-    getItemKey: (index) => searchFilteredEvents[index]?.id ?? index,
+    getItemKey: (index) => typeFilteredEvents[index]?.id ?? index,
   });
 
   // Scroll to bottom
   const scrollToBottom = useCallback(() => {
-    virtualizer.scrollToIndex(searchFilteredEvents.length - 1, { align: 'end' });
-  }, [virtualizer, searchFilteredEvents.length]);
+    virtualizer.scrollToIndex(typeFilteredEvents.length - 1, { align: 'end' });
+  }, [virtualizer, typeFilteredEvents.length]);
 
   // Track scroll position to show/hide scroll-to-bottom button
   useEffect(() => {
@@ -177,6 +231,9 @@ export function AgentFlow({
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
+
+  // Determine if any filters are active
+  const hasActiveFilters = searchQuery || timeFrom || timeTo || enabledTypes.size !== ALL_EVENT_TYPES.length;
 
   // SSR fallback
   if (!isSupported) {
@@ -214,7 +271,7 @@ export function AgentFlow({
             {status}
           </span>
           <span className="agent-flow__event-count">
-            {searchQuery ? `${searchFilteredEvents.length}/${filteredEvents.length}` : filteredEvents.length} events
+            {hasActiveFilters ? `${typeFilteredEvents.length}/${filteredEvents.length}` : filteredEvents.length} events
           </span>
           {stats.totalCost > 0 && (
             <span className="agent-flow__cost">${stats.totalCost.toFixed(4)}</span>
@@ -224,6 +281,40 @@ export function AgentFlow({
           )}
         </div>
         <div className="agent-flow__header-right">
+          {/* Export dropdown */}
+          <div className="agent-flow__export" ref={exportRef}>
+            <button
+              className={`agent-flow__export-toggle${exportOpen ? ' agent-flow__export-toggle--active' : ''}`}
+              onClick={() => setExportOpen(prev => !prev)}
+              title="Export events"
+              type="button"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </button>
+            {exportOpen && (
+              <div className="agent-flow__export-dropdown">
+                <button
+                  className="agent-flow__export-option"
+                  onClick={() => { exportToJSON(typeFilteredEvents); setExportOpen(false); }}
+                  type="button"
+                >
+                  Export as JSON
+                </button>
+                <button
+                  className="agent-flow__export-option"
+                  onClick={() => { exportToCSV(typeFilteredEvents); setExportOpen(false); }}
+                  type="button"
+                >
+                  Export as CSV
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Search toggle */}
           <button
             className={`agent-flow__search-toggle${searchOpen ? ' agent-flow__search-toggle--active' : ''}`}
@@ -237,6 +328,19 @@ export function AgentFlow({
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" />
               <path d="M21 21l-4.35-4.35" />
+            </svg>
+          </button>
+
+          {/* Time filter toggle */}
+          <button
+            className={`agent-flow__search-toggle${timeFilterOpen || timeFrom || timeTo ? ' agent-flow__search-toggle--active' : ''}`}
+            onClick={() => setTimeFilterOpen(prev => !prev)}
+            title="Filter by time range"
+            type="button"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
             </svg>
           </button>
 
@@ -283,7 +387,7 @@ export function AgentFlow({
           />
           {searchQuery && (
             <span className="agent-flow__search-count">
-              {searchFilteredEvents.length} matches
+              {typeFilteredEvents.length} matches
             </span>
           )}
           <button
@@ -296,12 +400,61 @@ export function AgentFlow({
         </div>
       )}
 
+      {/* Time range filter bar */}
+      {(timeFilterOpen || timeFrom || timeTo) && (
+        <div className="agent-flow__time-filter">
+          <span className="agent-flow__time-filter-label">Time range:</span>
+          <input
+            type="datetime-local"
+            className="agent-flow__time-input"
+            value={timeFrom}
+            onChange={(e) => setTimeFrom(e.target.value)}
+            placeholder="From"
+          />
+          <span className="agent-flow__time-filter-sep">to</span>
+          <input
+            type="datetime-local"
+            className="agent-flow__time-input"
+            value={timeTo}
+            onChange={(e) => setTimeTo(e.target.value)}
+            placeholder="To"
+          />
+          <button
+            className="agent-flow__time-filter-clear"
+            onClick={() => { setTimeFrom(''); setTimeTo(''); }}
+            title="Clear time filter"
+            type="button"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      {/* Event type filter checkboxes */}
+      <div className="agent-flow__type-filter">
+        {ALL_EVENT_TYPES.map(type => (
+          <label key={type} className="agent-flow__type-checkbox">
+            <input
+              type="checkbox"
+              checked={enabledTypes.has(type)}
+              onChange={() => toggleEventType(type)}
+            />
+            <span
+              className="agent-flow__type-label"
+              style={{ color: EVENT_DOT_COLORS[type] }}
+            >
+              {type}
+            </span>
+          </label>
+        ))}
+      </div>
+
       {/* Events (virtualized) */}
       <div className="agent-flow__events-wrapper">
         <div ref={parentRef} className="agent-flow__events">
-          {searchFilteredEvents.length === 0 ? (
+          {typeFilteredEvents.length === 0 ? (
             <div className="agent-flow__empty">
-              {searchQuery ? 'No matching events' : 'No events yet. Waiting for agent...'}
+              {hasActiveFilters ? 'No matching events' : 'No events yet. Waiting for agent...'}
             </div>
           ) : (
             <div
@@ -309,7 +462,7 @@ export function AgentFlow({
               style={{ height: virtualizer.getTotalSize() }}
             >
               {virtualizer.getVirtualItems().map((virtualRow) => {
-                const event = searchFilteredEvents[virtualRow.index];
+                const event = typeFilteredEvents[virtualRow.index];
                 return (
                   <div
                     key={event.id}
@@ -333,6 +486,7 @@ export function AgentFlow({
                         onToggleArgs={() => toggleArgs(event.id)}
                         renderMessage={renderMessage}
                         renderResult={renderResult}
+                        onEventClick={setSelectedEvent}
                       />
                     ) : (
                       <EventRow
@@ -341,6 +495,7 @@ export function AgentFlow({
                         onToggleArgs={() => toggleArgs(event.id)}
                         renderMessage={renderMessage}
                         renderResult={renderResult}
+                        onEventClick={setSelectedEvent}
                       />
                     )}
                   </div>
@@ -349,7 +504,7 @@ export function AgentFlow({
             </div>
           )}
         </div>
-        {showScrollBottom && searchFilteredEvents.length > 0 && (
+        {showScrollBottom && typeFilteredEvents.length > 0 && (
           <button className="agent-flow__scroll-bottom" onClick={scrollToBottom} title="Scroll to bottom" type="button">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 5v14M19 12l-7 7-7-7" />
@@ -357,6 +512,44 @@ export function AgentFlow({
           </button>
         )}
       </div>
+
+      {/* Event Detail Modal */}
+      {selectedEvent && (
+        <div className="agent-flow__modal-overlay" onClick={() => setSelectedEvent(null)}>
+          <div className="agent-flow__modal" onClick={(e) => e.stopPropagation()}>
+            <div className="agent-flow__modal-header">
+              <span className="agent-flow__modal-title">Event Detail</span>
+              <div className="agent-flow__modal-actions">
+                <button
+                  className="agent-flow__modal-copy"
+                  onClick={() => copyToClipboard(JSON.stringify(selectedEvent, null, 2))}
+                  title="Copy JSON"
+                  type="button"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                  </svg>
+                </button>
+                <button
+                  className="agent-flow__modal-close"
+                  onClick={() => setSelectedEvent(null)}
+                  title="Close"
+                  type="button"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <pre className="agent-flow__modal-content">
+              {JSON.stringify(selectedEvent, null, 2)}
+            </pre>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
