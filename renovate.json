@@ -1,0 +1,63 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "schedule": [
+    "before 3am on Monday"
+  ],
+  "packageRules": [
+    {
+      "description": "Auto-merge minor and patch updates",
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Group React-related dependencies",
+      "matchPackagePatterns": [
+        "^react",
+        "^@types/react",
+        "^react-dom",
+        "^@types/react-dom"
+      ],
+      "groupName": "react"
+    },
+    {
+      "description": "Pin dev dependencies",
+      "matchDepTypes": [
+        "devDependencies"
+      ],
+      "rangeStrategy": "pin"
+    },
+    {
+      "description": "Group Storybook updates",
+      "matchPackagePatterns": [
+        "^@storybook",
+        "^storybook$"
+      ],
+      "groupName": "storybook"
+    },
+    {
+      "description": "Group Vite ecosystem",
+      "matchPackagePatterns": [
+        "^vite",
+        "^@vitejs"
+      ],
+      "groupName": "vite"
+    },
+    {
+      "description": "Group testing dependencies",
+      "matchPackagePatterns": [
+        "^vitest",
+        "^@vitest",
+        "^@testing-library",
+        "^@playwright"
+      ],
+      "groupName": "testing"
+    }
+  ]
+}
