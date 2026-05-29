@@ -38,6 +38,45 @@ export const EVENT_DOT_COLORS: Record<FlowEvent['type'], string> = {
   end: '#10b981',
 };
 
+/** Trigger a file download in the browser */
+function downloadFile(filename: string, content: string, mimeType: string): void {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/** Escape a CSV field, quoting if necessary */
+function csvEscape(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+/** Export events as JSON file */
+export function exportToJSON(events: FlowEvent[]): void {
+  const data = JSON.stringify(events, null, 2);
+  downloadFile('agent-flow-events.json', data, 'application/json');
+}
+
+/** Export events as CSV file */
+export function exportToCSV(events: FlowEvent[]): void {
+  const headers = ['id', 'type', 'message', 'tool', 'timestamp', 'agentName', 'cost', 'tokens', 'duration'];
+  const rows = events.map(e =>
+    headers.map(h => csvEscape(e[h as keyof FlowEvent])).join(',')
+  );
+  const csv = [headers.join(','), ...rows].join('\n');
+  downloadFile('agent-flow-events.csv', csv, 'text/csv');
+}
+
 /** Generate a one-line summary for the collapsed timeline view */
 export function getSummary(event: FlowEvent): string {
   switch (event.type) {
