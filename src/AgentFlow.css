@@ -312,6 +312,31 @@
 }
 
 /* =============================================
+   Intersection Observer Placeholder
+   ============================================= */
+
+/*
+ * Lightweight placeholder rendered for virtual rows that haven't been
+ * scrolled into the viewport yet. Avoids expensive ReactMarkdown and
+ * layout work for off-screen rows while reserving the correct amount
+ * of space (controlled by the virtualizer's estimated size).
+ */
+.agent-flow__row-placeholder {
+  min-height: 48px;
+  border-radius: var(--af-radius-sm);
+}
+
+.agent-flow--dark .agent-flow__row-placeholder {
+  background: var(--af-surface);
+  opacity: 0.5;
+}
+
+.agent-flow--light .agent-flow__row-placeholder {
+  background: var(--af-surface);
+  opacity: 0.5;
+}
+
+/* =============================================
    List View: Event Card
    ============================================= */
 
