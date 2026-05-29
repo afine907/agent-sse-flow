@@ -63,7 +63,7 @@ export function AgentFlow({
     disconnect,
     clearEvents,
     isSupported,
-    connectionDetails: _connectionDetails,
+    connectionDetails,
   } = useSSE({ url, autoConnect, maxEvents, onError, onStatusChange, autoReconnect, maxReconnectAttempts });
 
   const [collapsedIds, setCollapsedIds] = useState<Set<number>>(new Set());

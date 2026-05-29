@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import type { FlowEvent, SSEStats } from './types';
+import type { FlowEvent, SSEStats, ConnectionDetails } from './types';
 
 export type { SSEStats } from './types';
 
@@ -32,6 +32,8 @@ export function useSSE({
   const [events, setEvents] = useState<FlowEvent[]>([]);
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [lastErrorMessage, setLastErrorMessage] = useState<string | null>(null);
+  const [connectedAt, setConnectedAt] = useState<number | null>(null);
 
   // Incremental stats — avoids O(n) scans on every render
   const statsRef = useRef({
@@ -174,6 +176,8 @@ export function useSSE({
     eventSource.onopen = () => {
       if (isMountedRef.current) {
         reconnectAttemptsRef.current = 0;
+        setConnectedAt(Date.now());
+        setLastErrorMessage(null);
         handleStatusChange('connected');
       }
     };
@@ -218,6 +222,8 @@ export function useSSE({
       if (!isMountedRef.current) return;
 
       handleStatusChange('error');
+      setLastErrorMessage('SSE connection failed');
+      setConnectedAt(null);
       const error = new Error('SSE connection failed');
       onError?.(error);
       eventSource.close();
@@ -255,6 +261,7 @@ export function useSSE({
       eventSourceRef.current = null;
     }
     if (isMountedRef.current) {
+      setConnectedAt(null);
       handleStatusChange('disconnected');
     }
   }, [handleStatusChange]);
@@ -273,6 +280,13 @@ export function useSSE({
     }
   }, [autoConnect, connect]);
 
+  const connectionDetails: ConnectionDetails = {
+    url,
+    reconnectAttempts: reconnectAttemptsRef.current,
+    lastErrorMessage,
+    connectedAt,
+  };
+
   return {
     events,
     filteredEvents,
@@ -285,5 +299,6 @@ export function useSSE({
     clearEvents,
     /** Whether EventSource is supported in this environment */
     isSupported: checkEventSourceSupport(),
+    connectionDetails,
   };
 }

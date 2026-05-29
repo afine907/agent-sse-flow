@@ -76,6 +76,17 @@ export interface SSEStats {
   agents: string[];
 }
 
+export interface ConnectionDetails {
+  /** The SSE endpoint URL */
+  url: string;
+  /** Number of reconnect attempts since last successful connection */
+  reconnectAttempts: number;
+  /** Last error message (if any) */
+  lastErrorMessage: string | null;
+  /** Timestamp when the current connection was established (null if not connected) */
+  connectedAt: number | null;
+}
+
 export interface UseSSEReturn {
   events: FlowEvent[];
   filteredEvents: FlowEvent[];
@@ -87,4 +98,6 @@ export interface UseSSEReturn {
   disconnect: () => void;
   clearEvents: () => void;
   isSupported: boolean;
+  /** Detailed connection status information */
+  connectionDetails: ConnectionDetails;
 }
