@@ -35,6 +35,10 @@ interface EventItem {
 type VirtualListItem = GroupHeaderItem | EventItem;
 import { useSSE } from './useSSE';
 import { EventRow, TimelineRow, AgentAvatar, WaterfallBar } from './EventRow';
+import { DAGView } from './DAGView';
+import { SwimlaneView } from './SwimlaneView';
+import { TokenChart } from './TokenChart';
+import { CostDashboard } from './CostDashboard';
 import { exportToJSON, exportToCSV, copyToClipboard, generateCurlCommand, EVENT_DOT_COLORS, formatTime } from './utils';
 
 // Note: AgentFlowProps, EventRow, TimelineRow, useSSE are exported from index.ts
@@ -189,6 +193,8 @@ export function AgentFlow({
   const [agentOrder, setAgentOrder] = useState<string[]>([]);
   const [dragOverAgent, setDragOverAgent] = useState<string | null>(null);
   const dragAgentRef = useRef<string | null>(null);
+  const [showTokenChart, setShowTokenChart] = useState(false);
+  const [showCostDashboard, setShowCostDashboard] = useState(false);
   // Merge customTheme CSS variable overrides with the user-supplied style prop
   const mergedStyle = useMemo(
     () => (customTheme ? { ...style, ...customTheme } : style),
@@ -351,7 +357,7 @@ export function AgentFlow({
 
   // Build virtual list items (grouped or flat)
   const virtualListItems = useMemo((): VirtualListItem[] => {
-    if (!groupByAgent || viewMode === 'timeline' || viewMode === 'waterfall') {
+    if (!groupByAgent || viewMode === 'timeline' || viewMode === 'waterfall' || viewMode === 'dag' || viewMode === 'swimlane') {
       return bookmarkFilteredEvents.map(e => ({ kind: 'event' as const, event: e, key: e.id }));
     }
 
@@ -1272,10 +1278,18 @@ export function AgentFlow({
         </div>
       )}
 
+      {/* Token usage chart */}
+      {showTokenChart && (stats.totalTokens > 0 || stats.totalCost > 0) && (<TokenChart events={filteredEvents} theme={theme} />)}
+      {/* Cost dashboard */}
+      {showCostDashboard && stats.totalCost > 0 && (<CostDashboard events={filteredEvents} theme={theme} />)}
       {/* Events (virtualized) */}
       <div className="agent-flow__events-wrapper">
-        <div ref={parentRef} className={`agent-flow__events${viewMode === 'waterfall' ? ' agent-flow__events--waterfall' : ''}`} role="log" aria-label="Event stream" aria-live="polite">
-          {viewMode === 'waterfall' ? (
+        <div ref={parentRef} className={`agent-flow__events${viewMode === 'waterfall' ? ' agent-flow__events--waterfall' : ''}${viewMode === 'dag' ? ' agent-flow__events--dag' : ''}${viewMode === 'swimlane' ? ' agent-flow__events--swimlane' : ''}`} role="log" aria-label="Event stream" aria-live="polite">
+          {viewMode === 'dag' ? (
+            <DAGView events={bookmarkFilteredEvents} theme={theme} />
+          ) : viewMode === 'swimlane' ? (
+            <SwimlaneView events={bookmarkFilteredEvents} theme={theme} />
+          ) : viewMode === 'waterfall' ? (
             bookmarkFilteredEvents.length === 0 ? (
               <div className="agent-flow__empty">
                 {hasActiveFilters ? t('empty.noMatching') : t('empty.noEvents')}
@@ -1424,7 +1438,7 @@ export function AgentFlow({
             </div>
           )}
         </div>
-        {virtualListItems.length > 0 && viewMode !== 'waterfall' && (
+        {virtualListItems.length > 0 && viewMode !== 'waterfall' && viewMode !== 'dag' && viewMode !== 'swimlane' && (
           <div className="agent-flow__scroll-controls">
             <button
               className={`agent-flow__auto-scroll-btn${autoScroll ? ' agent-flow__auto-scroll-btn--active' : ''}`}

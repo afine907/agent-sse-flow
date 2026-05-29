@@ -16,6 +16,10 @@ export { useSSE } from './useSSE';
 
 // Sub-components
 export { EventRow, TimelineRow, AgentAvatar, WaterfallBar, SyntaxHighlight } from './EventRow';
+export { DAGView } from './DAGView';
+export { SwimlaneView } from './SwimlaneView';
+export { TokenChart } from './TokenChart';
+export { CostDashboard } from './CostDashboard';
 
 // i18n
 export type { Locale, TranslationKey } from './i18n';
