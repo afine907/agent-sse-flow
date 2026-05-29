@@ -259,6 +259,14 @@ export function useSSE({
     }
   }, [handleStatusChange]);
 
+  const clearEvents = useCallback(() => {
+    setEvents([]);
+    setSelectedAgent(null);
+    statsRef.current = { totalCost: 0, totalTokens: 0, agentCounts: new Map() };
+    setStats({ totalCost: 0, totalTokens: 0, agents: [] });
+    pendingRef.current = [];
+  }, []);
+
   useEffect(() => {
     if (autoConnect) {
       return connect();
@@ -274,6 +282,7 @@ export function useSSE({
     setSelectedAgent,
     connect,
     disconnect,
+    clearEvents,
     /** Whether EventSource is supported in this environment */
     isSupported: checkEventSourceSupport(),
   };

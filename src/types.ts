@@ -85,5 +85,6 @@ export interface UseSSEReturn {
   setSelectedAgent: (agent: string | null) => void;
   connect: () => () => void;
   disconnect: () => void;
+  clearEvents: () => void;
   isSupported: boolean;
 }
