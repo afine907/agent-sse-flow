@@ -1,7 +1,7 @@
 import { memo, useCallback, forwardRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { FlowEvent, EventType } from './types';
-import { formatTime, copyToClipboard, EVENT_DOT_COLORS, getSummary } from './utils';
+import { formatTime, copyToClipboard, generateCurlCommand, EVENT_DOT_COLORS, getSummary } from './utils';
 
 /** SVG icon paths by event type (Lucide-style, 24x24 viewBox) */
 const ICON_PATHS: Record<EventType, string> = {
@@ -224,6 +224,16 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
                   {event.argsJson && onToggleArgs && (
                     <button className="agent-flow__tool-toggle" onClick={onToggleArgs} type="button">
                       {showArgs ? '▼' : '▶'} args
+                    </button>
+                  )}
+                  {event.type === 'tool_call' && (
+                    <button
+                      className="agent-flow__tool-toggle"
+                      onClick={(e) => { e.stopPropagation(); copyToClipboard(generateCurlCommand(event)); }}
+                      title="Copy as cURL"
+                      type="button"
+                    >
+                      curl
                     </button>
                   )}
                 </div>

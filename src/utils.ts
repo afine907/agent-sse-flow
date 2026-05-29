@@ -6,6 +6,20 @@ export function formatTime(ts: number): string {
   return d.toLocaleTimeString('en-US', { hour12: false });
 }
 
+/** Format timestamp as relative time (e.g. "3s ago", "2m ago", "1h ago") */
+export function formatRelativeTime(ts: number): string {
+  const diffMs = Date.now() - ts;
+  if (diffMs < 0) return 'just now';
+  const seconds = Math.floor(diffMs / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 /** Copy text to clipboard with fallback for non-HTTPS */
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
@@ -75,6 +89,14 @@ export function exportToCSV(events: FlowEvent[]): void {
   );
   const csv = [headers.join(','), ...rows].join('\n');
   downloadFile('agent-flow-events.csv', csv, 'text/csv');
+}
+
+/** Generate a curl command from a tool_call event */
+export function generateCurlCommand(event: FlowEvent): string {
+  const tool = event.tool || 'unknown';
+  const args = event.argsJson || (event.args ? JSON.stringify(event.args, null, 2) : '{}');
+  const endpoint = `/tools/${tool}`;
+  return `curl -X POST '${endpoint}' \\\n  -H 'Content-Type: application/json' \\\n  -d '${args.replace(/'/g, "'\\''")}'`;
 }
 
 /** Generate a one-line summary for the collapsed timeline view */
