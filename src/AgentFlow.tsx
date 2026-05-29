@@ -37,8 +37,6 @@ import { useSSE } from './useSSE';
 import { EventRow, TimelineRow, AgentAvatar, WaterfallBar } from './EventRow';
 import { DAGView } from './DAGView';
 import { SwimlaneView } from './SwimlaneView';
-import { TokenChart } from './TokenChart';
-import { CostDashboard } from './CostDashboard';
 import { exportToJSON, exportToCSV, copyToClipboard, generateCurlCommand, EVENT_DOT_COLORS, formatTime } from './utils';
 
 // Note: AgentFlowProps, EventRow, TimelineRow, useSSE are exported from index.ts
@@ -896,6 +894,39 @@ export function AgentFlow({
             </svg>
           </button>
 
+          {/* Token chart toggle */}
+          {(stats.totalTokens > 0 || stats.totalCost > 0) && (
+            <button
+              className={`agent-flow__header-btn${showTokenChart ? ' agent-flow__header-btn--active' : ''}`}
+              onClick={() => setShowTokenChart(prev => !prev)}
+              title="Toggle token usage chart"
+              type="button"
+              aria-label="Toggle token usage chart"
+              aria-pressed={showTokenChart}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+            </button>
+          )}
+
+          {/* Cost dashboard toggle */}
+          {stats.totalCost > 0 && (
+            <button
+              className={`agent-flow__header-btn${showCostDashboard ? ' agent-flow__header-btn--active' : ''}`}
+              onClick={() => setShowCostDashboard(prev => !prev)}
+              title="Toggle cost dashboard"
+              type="button"
+              aria-label="Toggle cost dashboard"
+              aria-pressed={showCostDashboard}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23" />
+                <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+              </svg>
+            </button>
+          )}
+
           {/* Compact view toggle */}
           <button
             className={`agent-flow__header-btn${compact ? ' agent-flow__header-btn--active' : ''}`}
@@ -1278,10 +1309,6 @@ export function AgentFlow({
         </div>
       )}
 
-      {/* Token usage chart */}
-      {showTokenChart && (stats.totalTokens > 0 || stats.totalCost > 0) && (<TokenChart events={filteredEvents} theme={theme} />)}
-      {/* Cost dashboard */}
-      {showCostDashboard && stats.totalCost > 0 && (<CostDashboard events={filteredEvents} theme={theme} />)}
       {/* Events (virtualized) */}
       <div className="agent-flow__events-wrapper">
         <div ref={parentRef} className={`agent-flow__events${viewMode === 'waterfall' ? ' agent-flow__events--waterfall' : ''}${viewMode === 'dag' ? ' agent-flow__events--dag' : ''}${viewMode === 'swimlane' ? ' agent-flow__events--swimlane' : ''}`} role="log" aria-label="Event stream" aria-live="polite">
