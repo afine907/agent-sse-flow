@@ -1629,6 +1629,31 @@
 }
 
 /* =============================================
+   Recording Controls
+   ============================================= */
+
+.agent-flow__record-btn {
+  color: var(--af-text-secondary);
+}
+
+.agent-flow__record-btn--active {
+  color: #ef4444;
+  animation: agent-flow__record-pulse 1.5s ease-in-out infinite;
+}
+
+.agent-flow__record-count {
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 3px;
+  color: #ef4444;
+}
+
+@keyframes agent-flow__record-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* =============================================
    Agent Group Headers
    ============================================= */
 

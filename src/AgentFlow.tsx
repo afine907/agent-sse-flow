@@ -39,6 +39,7 @@ import { DAGView } from './DAGView';
 import { SwimlaneView } from './SwimlaneView';
 import { exportToJSON, exportToCSV, copyToClipboard, generateCurlCommand, EVENT_DOT_COLORS, formatTime } from './utils';
 import { analyzePerformance } from './perf-analyze';
+import { createRecordingBuffer, downloadJSONL } from './recording';
 
 // Note: AgentFlowProps, EventRow, TimelineRow, useSSE are exported from index.ts
 // This avoids duplicate re-exports that could interfere with tree-shaking
@@ -153,6 +154,14 @@ export function AgentFlow({
   enableSounds = false,
 }: AgentFlowProps) {
   const t = useMemo(() => createT(locale), [locale]);
+  // Recording: capture raw SSE data when active
+  const handleRawEvent = useCallback((rawData: string) => {
+    recordingBufferRef.current.push(rawData);
+    if (recordingBufferRef.current.isRecording) {
+      setRecordingCount(recordingBufferRef.current.count);
+    }
+  }, []);
+
   const {
     filteredEvents,
     status,
@@ -164,7 +173,7 @@ export function AgentFlow({
     clearEvents,
     isSupported,
     connectionDetails,
-  } = useSSE({ url, autoConnect, maxEvents, onError, onStatusChange, autoReconnect, maxReconnectAttempts });
+  } = useSSE({ url, autoConnect, maxEvents, onError, onStatusChange, autoReconnect, maxReconnectAttempts, onRawEvent: handleRawEvent });
 
   const [collapsedIds, setCollapsedIds] = useState<Set<number>>(new Set());
   const [expandedArgsIds, setExpandedArgsIds] = useState<Set<number>>(new Set());
@@ -195,6 +204,9 @@ export function AgentFlow({
   const [showTokenChart, setShowTokenChart] = useState(false);
   const [showCostDashboard, setShowCostDashboard] = useState(false);
   const [showPerf, setShowPerf] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingCount, setRecordingCount] = useState(0);
+  const recordingBufferRef = useRef(createRecordingBuffer());
   // Merge customTheme CSS variable overrides with the user-supplied style prop
   const mergedStyle = useMemo(
     () => (customTheme ? { ...style, ...customTheme } : style),
@@ -289,6 +301,22 @@ export function AgentFlow({
       else next.add(id);
       return next;
     });
+  }, []);
+
+  // Recording controls
+  const startRecording = useCallback(() => {
+    recordingBufferRef.current.start();
+    setIsRecording(true);
+    setRecordingCount(0);
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    recordingBufferRef.current.stop();
+    setIsRecording(false);
+    const jsonl = recordingBufferRef.current.toJSONL();
+    if (jsonl.trim()) {
+      downloadJSONL(jsonl);
+    }
   }, []);
 
   // Bookmark filter (applied after type filter)
@@ -1194,6 +1222,34 @@ export function AgentFlow({
                 <rect x="14" y="3" width="7" height="7" />
                 <rect x="3" y="14" width="7" height="7" />
                 <rect x="14" y="14" width="7" height="7" />
+              </svg>
+            </button>
+          )}
+
+          {/* Recording controls */}
+          {isRecording ? (
+            <button
+              className="agent-flow__header-btn agent-flow__record-btn agent-flow__record-btn--active"
+              onClick={stopRecording}
+              title={`Stop recording (${recordingCount} events captured)`}
+              type="button"
+              aria-label={`Stop recording (${recordingCount} events captured)`}
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="4" y="4" width="16" height="16" rx="2" />
+              </svg>
+              {recordingCount > 0 && <span className="agent-flow__record-count">{recordingCount}</span>}
+            </button>
+          ) : (
+            <button
+              className="agent-flow__header-btn agent-flow__record-btn"
+              onClick={startRecording}
+              title="Record event stream to JSONL"
+              type="button"
+              aria-label="Record event stream"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="8" />
               </svg>
             </button>
           )}
