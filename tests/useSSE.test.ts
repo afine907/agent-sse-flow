@@ -398,6 +398,244 @@ describe('useSSE', () => {
     expect(result.current.filteredEvents).toHaveLength(2)
   })
 
+  // ─── Agent Filtering Comprehensive ────────────────────────────────────
+
+  describe('agent filtering comprehensive', () => {
+    it('filters events by a single agent', async () => {
+      const { result } = renderHook(() => useSSE(defaultOptions))
+
+      act(() => { result.current.connect() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+
+      const mock = MockEventSource.instances[0]
+      act(() => {
+        mock.simulateMessage({ type: 'message', message: 'From researcher', agentName: 'researcher' })
+        mock.simulateMessage({ type: 'message', message: 'From coder', agentName: 'coder' })
+        mock.simulateMessage({ type: 'tool_call', tool: 'search', message: 'Searching', agentName: 'researcher' })
+        mock.simulateMessage({ type: 'message', message: 'From planner', agentName: 'planner' })
+        mock.simulateMessage({ type: 'message', message: 'Another from researcher', agentName: 'researcher' })
+      })
+      await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+
+      // All 5 events visible initially
+      expect(result.current.events).toHaveLength(5)
+      expect(result.current.filteredEvents).toHaveLength(5)
+
+      // Filter to researcher only
+      act(() => { result.current.setSelectedAgent('researcher') })
+
+      expect(result.current.filteredEvents).toHaveLength(3)
+      expect(result.current.filteredEvents.every(e => e.agentName === 'researcher')).toBe(true)
+    })
+
+    it('shows all events when selectedAgent is set to null (All Agents)', async () => {
+      const { result } = renderHook(() => useSSE(defaultOptions))
+
+      act(() => { result.current.connect() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+
+      const mock = MockEventSource.instances[0]
+      act(() => {
+        mock.simulateMessage({ type: 'message', message: 'A1', agentName: 'alpha' })
+        mock.simulateMessage({ type: 'message', message: 'B1', agentName: 'beta' })
+        mock.simulateMessage({ type: 'message', message: 'A2', agentName: 'alpha' })
+      })
+      await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+
+      // Filter to alpha
+      act(() => { result.current.setSelectedAgent('alpha') })
+      expect(result.current.filteredEvents).toHaveLength(2)
+
+      // Switch to null (All Agents)
+      act(() => { result.current.setSelectedAgent(null) })
+      expect(result.current.filteredEvents).toHaveLength(3)
+    })
+
+    it('updates filtered events when switching between agents', async () => {
+      const { result } = renderHook(() => useSSE(defaultOptions))
+
+      act(() => { result.current.connect() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+
+      const mock = MockEventSource.instances[0]
+      act(() => {
+        mock.simulateMessage({ type: 'message', message: 'Writer msg', agentName: 'writer' })
+        mock.simulateMessage({ type: 'message', message: 'Editor msg', agentName: 'editor' })
+        mock.simulateMessage({ type: 'message', message: 'Writer msg 2', agentName: 'writer' })
+        mock.simulateMessage({ type: 'tool_call', tool: 'edit', message: 'Editing', agentName: 'editor' })
+      })
+      await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+
+      // Switch: writer -> editor -> null -> editor
+      act(() => { result.current.setSelectedAgent('writer') })
+      expect(result.current.filteredEvents).toHaveLength(2)
+      expect(result.current.filteredEvents[0].message).toBe('Writer msg')
+
+      act(() => { result.current.setSelectedAgent('editor') })
+      expect(result.current.filteredEvents).toHaveLength(2)
+      expect(result.current.filteredEvents[0].message).toBe('Editor msg')
+
+      act(() => { result.current.setSelectedAgent(null) })
+      expect(result.current.filteredEvents).toHaveLength(4)
+
+      act(() => { result.current.setSelectedAgent('editor') })
+      expect(result.current.filteredEvents).toHaveLength(2)
+    })
+
+    it('filtered events count updates as new events arrive', async () => {
+      const { result } = renderHook(() => useSSE(defaultOptions))
+
+      act(() => { result.current.connect() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+
+      const mock = MockEventSource.instances[0]
+
+      // Set filter before events arrive
+      act(() => { result.current.setSelectedAgent('agent-a') })
+
+      // Initially empty
+      expect(result.current.filteredEvents).toHaveLength(0)
+
+      // Add events for different agents in separate batches
+      act(() => {
+        mock.simulateMessage({ type: 'message', message: 'A1', agentName: 'agent-a' })
+        mock.simulateMessage({ type: 'message', message: 'B1', agentName: 'agent-b' })
+      })
+      await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+
+      expect(result.current.filteredEvents).toHaveLength(1)
+
+      act(() => {
+        mock.simulateMessage({ type: 'message', message: 'A2', agentName: 'agent-a' })
+      })
+      await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+
+      expect(result.current.filteredEvents).toHaveLength(2)
+
+      act(() => {
+        mock.simulateMessage({ type: 'message', message: 'B2', agentName: 'agent-b' })
+      })
+      await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+
+      // Still only 2 (agent-a events)
+      expect(result.current.filteredEvents).toHaveLength(2)
+      expect(result.current.events).toHaveLength(4)
+    })
+
+    it('stats reflect all events regardless of selectedAgent filter', async () => {
+      const { result } = renderHook(() => useSSE(defaultOptions))
+
+      act(() => { result.current.connect() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+
+      const mock = MockEventSource.instances[0]
+      act(() => {
+        mock.simulateMessage({ type: 'tool_call', tool: 'search', cost: 0.01, tokens: 100, agentName: 'agent-a' })
+        mock.simulateMessage({ type: 'tool_call', tool: 'write', cost: 0.02, tokens: 200, agentName: 'agent-b' })
+        mock.simulateMessage({ type: 'tool_call', tool: 'read', cost: 0.03, tokens: 300, agentName: 'agent-a' })
+      })
+      await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+
+      // Stats reflect ALL events
+      expect(result.current.stats.totalCost).toBeCloseTo(0.06)
+      expect(result.current.stats.totalTokens).toBe(600)
+      expect(result.current.stats.agents).toContain('agent-a')
+      expect(result.current.stats.agents).toContain('agent-b')
+
+      // Filter to agent-a: filteredEvents changes, stats stay the same
+      act(() => { result.current.setSelectedAgent('agent-a') })
+
+      expect(result.current.filteredEvents).toHaveLength(2)
+      // Stats are not affected by agent filter
+      expect(result.current.stats.totalCost).toBeCloseTo(0.06)
+      expect(result.current.stats.totalTokens).toBe(600)
+      expect(result.current.stats.agents).toContain('agent-a')
+      expect(result.current.stats.agents).toContain('agent-b')
+    })
+
+    it('tracks unique agent names in stats', async () => {
+      const { result } = renderHook(() => useSSE(defaultOptions))
+
+      act(() => { result.current.connect() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+
+      const mock = MockEventSource.instances[0]
+      act(() => {
+        mock.simulateMessage({ type: 'message', message: 'a1', agentName: 'alpha' })
+        mock.simulateMessage({ type: 'message', message: 'a2', agentName: 'alpha' })
+        mock.simulateMessage({ type: 'message', message: 'b1', agentName: 'beta' })
+        mock.simulateMessage({ type: 'message', message: 'g1', agentName: 'gamma' })
+      })
+      await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+
+      expect(result.current.stats.agents).toContain('alpha')
+      expect(result.current.stats.agents).toContain('beta')
+      expect(result.current.stats.agents).toContain('gamma')
+      expect(result.current.stats.agents).toHaveLength(3)
+    })
+
+    it('handles events with no agentName in filtered view', async () => {
+      const { result } = renderHook(() => useSSE(defaultOptions))
+
+      act(() => { result.current.connect() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+
+      const mock = MockEventSource.instances[0]
+      act(() => {
+        mock.simulateMessage({ type: 'start', message: 'System start' })
+        mock.simulateMessage({ type: 'message', message: 'Agent A msg', agentName: 'agent-a' })
+        mock.simulateMessage({ type: 'message', message: 'No agent' })
+        mock.simulateMessage({ type: 'end', message: 'Done' })
+      })
+      await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+
+      // All 4 events visible with no filter
+      expect(result.current.filteredEvents).toHaveLength(4)
+
+      // Filter to agent-a: only 1 event
+      act(() => { result.current.setSelectedAgent('agent-a') })
+      expect(result.current.filteredEvents).toHaveLength(1)
+      expect(result.current.filteredEvents[0].message).toBe('Agent A msg')
+
+      // Events without agentName are excluded when filtering
+      act(() => { result.current.setSelectedAgent(null) })
+      expect(result.current.filteredEvents).toHaveLength(4)
+    })
+
+    it('filtering works correctly after maxEvents eviction', async () => {
+      const { result } = renderHook(() => useSSE({ ...defaultOptions, maxEvents: 3 }))
+
+      act(() => { result.current.connect() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+
+      const mock = MockEventSource.instances[0]
+      act(() => {
+        mock.simulateMessage({ type: 'message', message: 'A old', agentName: 'agent-a' })
+        mock.simulateMessage({ type: 'message', message: 'B only', agentName: 'agent-b' })
+        mock.simulateMessage({ type: 'message', message: 'A mid', agentName: 'agent-a' })
+      })
+      await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+
+      expect(result.current.events).toHaveLength(3)
+
+      // Filter to agent-a
+      act(() => { result.current.setSelectedAgent('agent-a') })
+      expect(result.current.filteredEvents).toHaveLength(2)
+
+      // Add one more to evict the oldest (A old)
+      act(() => {
+        mock.simulateMessage({ type: 'message', message: 'A new', agentName: 'agent-a' })
+      })
+      await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+
+      expect(result.current.events).toHaveLength(3)
+      // "A old" was evicted, so only "A mid" and "A new" remain for agent-a
+      expect(result.current.filteredEvents).toHaveLength(2)
+      expect(result.current.filteredEvents[0].message).toBe('A mid')
+      expect(result.current.filteredEvents[1].message).toBe('A new')
+    })
+  })
+
   // ─── Stats Computation ────────────────────────────────────────────────
 
   it('computes totalCost and totalTokens from events', async () => {
