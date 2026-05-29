@@ -90,6 +90,36 @@ const CopyButton = memo(function CopyButton({ text, title = 'Copy' }: { text: st
 });
 CopyButton.displayName = 'CopyButton';
 
+/**
+ * SyntaxHighlight — lightweight JSON syntax highlighting (no external lib).
+ * Tokenizes JSON via regex and wraps each token type in a colored span.
+ *
+ * Colors: keys=amber, strings=green, numbers=blue, booleans=purple, null=gray
+ */
+const JSON_TOKEN_RE = /("(?:\\.|[^"\\])*")\s*(:)?|(\b(?:true|false)\b)|(\bnull\b)|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|(\[|\]|\{|\}|,)/g;
+
+export const SyntaxHighlight = memo(function SyntaxHighlight({ json }: { json: string }) {
+  const html = useMemo(() => {
+    return json.replace(JSON_TOKEN_RE, (match, str, colon, bool, nul, num) => {
+      if (str) {
+        if (colon) {
+          // Key (string followed by colon) — amber
+          return `<span class="af-syn--key">${str}</span>:`;
+        }
+        // String value — green
+        return `<span class="af-syn--string">${str}</span>`;
+      }
+      if (bool) return `<span class="af-syn--bool">${match}</span>`;
+      if (nul) return `<span class="af-syn--null">${match}</span>`;
+      if (num) return `<span class="af-syn--num">${match}</span>`;
+      return match; // punctuation
+    });
+  }, [json]);
+
+  return <span dangerouslySetInnerHTML={{ __html: html }} />;
+});
+SyntaxHighlight.displayName = 'SyntaxHighlight';
+
 /** Agent avatar: image URL, emoji/text, or default first-letter circle */
 export const AgentAvatar = memo(function AgentAvatar({
   avatar,
@@ -273,7 +303,7 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
             {showArgs && event.argsJson && (
               <pre className="agent-flow__tool-args">
                 <CopyButton text={event.argsJson} />
-                {event.argsJson}
+                <SyntaxHighlight json={event.argsJson} />
               </pre>
             )}
           </div>
@@ -420,7 +450,7 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
                   {showArgs && event.argsJson && (
                     <pre className="agent-flow__tool-args">
                       <CopyButton text={event.argsJson} />
-                      {event.argsJson}
+                      <SyntaxHighlight json={event.argsJson} />
                     </pre>
                   )}
                 </div>
