@@ -475,3 +475,55 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
   );
 }));
 TimelineRow.displayName = 'TimelineRow';
+
+/** Props for WaterfallBar */
+interface WaterfallBarProps {
+  event: FlowEvent;
+  startTime: number;
+  totalDuration: number;
+  onClick?: (event: FlowEvent) => void;
+  highlighted?: boolean;
+}
+
+/** WaterfallBar — single event bar in the waterfall view */
+export const WaterfallBar = memo(forwardRef<HTMLDivElement, WaterfallBarProps>(function WaterfallBar(
+  { event, startTime, totalDuration, onClick, highlighted },
+  ref,
+) {
+  const timestamp = event.timestamp ?? 0;
+  const duration = event.duration ?? 0;
+
+  // Calculate position and width as percentages
+  const left = totalDuration > 0 ? ((timestamp - startTime) / totalDuration) * 100 : 0;
+  // Minimum width of 0.5% for visibility, or actual duration proportion
+  const width = totalDuration > 0
+    ? Math.max(0.5, (duration / totalDuration) * 100)
+    : 0.5;
+
+  const color = EVENT_DOT_COLORS[event.type];
+
+  return (
+    <div
+      ref={ref}
+      className={`agent-flow__waterfall-bar${highlighted ? ' agent-flow__waterfall-bar--highlight' : ''}`}
+      style={{ left: `${left}%`, width: `${width}%` }}
+      onClick={() => onClick?.(event)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onClick?.(event);
+      }}
+      title={`${event.type}${event.tool ? `: ${event.tool}` : ''}${duration ? ` (${duration}ms)` : ''}`}
+    >
+      <span
+        className="agent-flow__waterfall-bar-fill"
+        style={{ background: color }}
+      />
+      <span className="agent-flow__waterfall-bar-label">
+        {event.tool || event.type}
+        {duration > 0 && <span className="agent-flow__waterfall-bar-duration">{duration}ms</span>}
+      </span>
+    </div>
+  );
+}));
+WaterfallBar.displayName = 'WaterfallBar';

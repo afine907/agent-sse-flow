@@ -11,7 +11,7 @@ import { useState, useCallback, useRef, useEffect, useMemo, memo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import './AgentFlow.css';
 
-import type { AgentFlowProps, FlowEvent, EventType } from './types';
+import type { AgentFlowProps, FlowEvent, EventType, ViewMode } from './types';
 import { useVisibleRows } from './useVisibleRows';
 
 /** A virtual list item: either a group header or an event */
@@ -32,8 +32,8 @@ interface EventItem {
 
 type VirtualListItem = GroupHeaderItem | EventItem;
 import { useSSE } from './useSSE';
-import { EventRow, TimelineRow, AgentAvatar } from './EventRow';
-import { exportToJSON, exportToCSV, copyToClipboard, generateCurlCommand, EVENT_DOT_COLORS } from './utils';
+import { EventRow, TimelineRow, AgentAvatar, WaterfallBar } from './EventRow';
+import { exportToJSON, exportToCSV, copyToClipboard, generateCurlCommand, EVENT_DOT_COLORS, formatTime } from './utils';
 
 // Note: AgentFlowProps, EventRow, TimelineRow, useSSE are exported from index.ts
 // This avoids duplicate re-exports that could interfere with tree-shaking
@@ -69,7 +69,7 @@ const MemoizedEventRow = memo(function MemoizedEventRow({
   relativeTime: boolean;
   renderMessage?: (message: string) => React.ReactNode;
   renderResult?: (result: string) => React.ReactNode;
-  viewMode: 'list' | 'timeline';
+  viewMode: ViewMode;
   onToggleCollapse: (id: number) => void;
   onToggleArgs: (id: number) => void;
   onToggleBookmark: (id: number) => void;
@@ -289,7 +289,7 @@ export function AgentFlow({
 
   // Build virtual list items (grouped or flat)
   const virtualListItems = useMemo((): VirtualListItem[] => {
-    if (!groupByAgent || viewMode === 'timeline') return bookmarkFilteredEvents.map(e => ({ kind: 'event' as const, event: e, key: e.id }));
+    if (!groupByAgent || viewMode === 'timeline' || viewMode === 'waterfall') return bookmarkFilteredEvents.map(e => ({ kind: 'event' as const, event: e, key: e.id }));
 
     // Group events by agent name, preserving order
     const groups = new Map<string, FlowEvent[]>();
@@ -565,6 +565,17 @@ export function AgentFlow({
     },
     [virtualizer, measureRef],
   );
+
+  // Waterfall view: compute time range for positioning bars
+  const waterfallTimeRange = useMemo(() => {
+    const eventsWithTime = bookmarkFilteredEvents.filter(e => e.timestamp);
+    if (eventsWithTime.length === 0) return { startTime: 0, totalDuration: 0 };
+    const startTime = eventsWithTime[0].timestamp!;
+    const lastEvent = eventsWithTime[eventsWithTime.length - 1];
+    const endTime = lastEvent.timestamp! + (lastEvent.duration ?? 0);
+    const totalDuration = Math.max(endTime - startTime, 1);
+    return { startTime, totalDuration };
+  }, [bookmarkFilteredEvents]);
 
   // Auto-scroll to bottom when new events arrive (if enabled)
   useEffect(() => {
@@ -937,7 +948,7 @@ export function AgentFlow({
           )}
 
           {/* Group by agent toggle (only shown when multiple agents exist and in list view) */}
-          {stats.agents.length > 1 && viewMode === 'list' && (
+          {stats.agents.length > 1 && (viewMode === 'list' || viewMode === 'waterfall') && (
             <button
               className={`agent-flow__header-btn${groupByAgent ? ' agent-flow__header-btn--active' : ''}`}
               onClick={() => setGroupByAgent(prev => !prev)}
@@ -1084,8 +1095,55 @@ export function AgentFlow({
 
       {/* Events (virtualized) */}
       <div className="agent-flow__events-wrapper">
-        <div ref={parentRef} className="agent-flow__events">
-          {virtualListItems.length === 0 ? (
+        <div ref={parentRef} className={`agent-flow__events${viewMode === 'waterfall' ? ' agent-flow__events--waterfall' : ''}`}>
+          {viewMode === 'waterfall' ? (
+            bookmarkFilteredEvents.length === 0 ? (
+              <div className="agent-flow__empty">
+                {hasActiveFilters ? 'No matching events' : 'No events yet. Waiting for agent...'}
+              </div>
+            ) : (
+              <div className="agent-flow__waterfall">
+                {/* Time axis */}
+                <div className="agent-flow__waterfall-axis">
+                  {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
+                    const ms = Math.round(waterfallTimeRange.startTime + waterfallTimeRange.totalDuration * pct);
+                    return (
+                      <span
+                        key={pct}
+                        className="agent-flow__waterfall-tick"
+                        style={{ left: `${pct * 100}%` }}
+                      >
+                        {formatTime(ms)}
+                      </span>
+                    );
+                  })}
+                </div>
+                {/* Waterfall bars */}
+                <div className="agent-flow__waterfall-bars">
+                  {bookmarkFilteredEvents.map((event) => (
+                    <div
+                      key={event.id}
+                      className="agent-flow__waterfall-row"
+                      onContextMenu={(e) => handleContextMenu(e, event)}
+                    >
+                      <span className="agent-flow__waterfall-row-label" title={event.tool || event.type}>
+                        {event.tool || event.type}
+                      </span>
+                      <div className="agent-flow__waterfall-row-track">
+                        <WaterfallBar
+                          event={event}
+                          startTime={waterfallTimeRange.startTime}
+                          totalDuration={waterfallTimeRange.totalDuration}
+                          onClick={setSelectedEvent}
+                          highlighted={highlightedEventId === event.id}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          ) : virtualListItems.length === 0 ? (
             <div className="agent-flow__empty">
               {hasActiveFilters ? 'No matching events' : 'No events yet. Waiting for agent...'}
             </div>
@@ -1182,7 +1240,7 @@ export function AgentFlow({
             </div>
           )}
         </div>
-        {virtualListItems.length > 0 && (
+        {virtualListItems.length > 0 && viewMode !== 'waterfall' && (
           <div className="agent-flow__scroll-controls">
             <button
               className={`agent-flow__auto-scroll-btn${autoScroll ? ' agent-flow__auto-scroll-btn--active' : ''}`}

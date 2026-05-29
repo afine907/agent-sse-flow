@@ -2333,3 +2333,143 @@
   color: #6b7280;
   font-style: italic;
 }
+
+/* =============================================
+   Waterfall View
+   ============================================= */
+
+.agent-flow__events--waterfall {
+  padding: 0;
+  overflow-x: auto;
+}
+
+.agent-flow__waterfall {
+  min-width: 600px;
+  padding: 12px 16px;
+}
+
+/* Time axis */
+.agent-flow__waterfall-axis {
+  position: relative;
+  height: 28px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--af-border);
+}
+
+.agent-flow__waterfall-tick {
+  position: absolute;
+  bottom: 4px;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-family: var(--af-mono);
+  color: var(--af-text-tertiary);
+  white-space: nowrap;
+}
+
+.agent-flow__waterfall-tick::before {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  width: 1px;
+  height: 6px;
+  background: var(--af-border);
+}
+
+/* Waterfall bars container */
+.agent-flow__waterfall-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Single waterfall row */
+.agent-flow__waterfall-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  min-width: 0;
+}
+
+.agent-flow__waterfall-row-label {
+  flex-shrink: 0;
+  width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-family: var(--af-mono);
+  color: var(--af-text-secondary);
+  text-align: right;
+  padding-right: 8px;
+}
+
+/* Track (bar area) */
+.agent-flow__waterfall-row-track {
+  flex: 1;
+  position: relative;
+  height: 100%;
+  min-width: 0;
+}
+
+.agent-flow--dark .agent-flow__waterfall-row-track {
+  background: var(--af-surface);
+  border-radius: 3px;
+}
+
+.agent-flow--light .agent-flow__waterfall-row-track {
+  background: var(--af-surface);
+  border-radius: 3px;
+}
+
+/* Individual bar */
+.agent-flow__waterfall-bar {
+  position: absolute;
+  top: 2px;
+  height: calc(100% - 4px);
+  min-width: 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.15s, filter 0.15s;
+}
+
+.agent-flow__waterfall-bar:hover {
+  filter: brightness(1.2);
+}
+
+.agent-flow__waterfall-bar--highlight {
+  outline: 2px solid var(--af-accent);
+  outline-offset: 1px;
+}
+
+.agent-flow__waterfall-bar-fill {
+  position: absolute;
+  inset: 0;
+  opacity: 0.8;
+  border-radius: 3px;
+}
+
+.agent-flow__waterfall-bar-label {
+  position: relative;
+  z-index: 1;
+  padding: 0 6px;
+  font-size: 10px;
+  font-family: var(--af-mono);
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.agent-flow__waterfall-bar-duration {
+  opacity: 0.8;
+  font-size: 9px;
+}
