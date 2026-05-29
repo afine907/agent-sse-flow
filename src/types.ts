@@ -1,4 +1,5 @@
 import type React from 'react';
+import type { Locale } from './i18n';
 
 export type EventStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
@@ -45,6 +46,8 @@ export interface AgentFlowProps {
   customTheme?: Record<string, string>;
   /** Keyboard search shortcut key (default: 'k' with Ctrl/Cmd) */
   searchKey?: string;
+  /** Locale for UI labels: 'en' (default) or 'zh' */
+  locale?: Locale;
 }
 
 export interface FlowEvent {
