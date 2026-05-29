@@ -30,6 +30,7 @@
     "build:demo": "vite build --config vite.demo.config.ts",
     "mock-server": "node src/mock-server/index.mjs",
     "perf-test": "playwright test tests/perf.spec.ts",
+    "lighthouse-test": "playwright test tests/lighthouse.spec.ts",
     "benchmark": "vitest run --config vitest.benchmark.config.ts",
     "prepublishOnly": "npm run build"
   },
