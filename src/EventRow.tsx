@@ -47,6 +47,7 @@ const TruncatedContent = memo(function TruncatedContent({
             className="agent-flow__show-more"
             onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
             type="button"
+            aria-label={`Show more (${content.length} characters)`}
           >
             Show more ({content.length} chars)
           </button>
@@ -80,6 +81,7 @@ const CopyButton = memo(function CopyButton({ text, title = 'Copy' }: { text: st
       onClick={handleCopy}
       title={title}
       type="button"
+      aria-label={title}
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
@@ -202,6 +204,10 @@ interface RowProps {
   bookmarked?: boolean;
   /** Called when the bookmark button is clicked */
   onToggleBookmark?: () => void;
+  /** Whether this event is pinned */
+  pinned?: boolean;
+  /** Called when the pin button is clicked */
+  onTogglePin?: () => void;
 }
 
 /** EventRow — list/card view */
@@ -217,6 +223,8 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
     relativeTime: useRelativeTime = false,
     bookmarked = false,
     onToggleBookmark,
+    pinned = false,
+    onTogglePin,
   },
   ref,
 ) {
@@ -228,10 +236,11 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
   return (
     <div
       ref={ref}
-      className={`agent-flow__event agent-flow__event--${event.type} agent-flow__event--clickable${highlighted ? ' agent-flow__event--highlight' : ''}${bookmarked ? ' agent-flow__event--bookmarked' : ''}`}
+      className={`agent-flow__event agent-flow__event--${event.type} agent-flow__event--clickable${highlighted ? ' agent-flow__event--highlight' : ''}${bookmarked ? ' agent-flow__event--bookmarked' : ''}${pinned ? ' agent-flow__event--pinned' : ''}`}
       onClick={() => onEventClick?.(event)}
       role="button"
       tabIndex={0}
+      aria-label={`${event.type} event${event.tool ? `: ${event.tool}` : ''}`}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           onEventClick?.(event);
@@ -241,12 +250,30 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
       <EventIcon type={event.type} />
       <div className="agent-flow__event-content">
         <div className="agent-flow__event-header">
+          {onTogglePin && (
+            <button
+              className={`agent-flow__pin-btn${pinned ? ' agent-flow__pin-btn--active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onTogglePin(); }}
+              title={pinned ? 'Unpin event' : 'Pin event to top'}
+              type="button"
+              aria-label={pinned ? 'Unpin event' : 'Pin event to top'}
+              aria-pressed={pinned}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill={pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 17v5" />
+                <path d="M5 17h14l-1.5-6H6.5L5 17z" />
+                <path d="M9 3h6v6l-3 3-3-3V3z" />
+              </svg>
+            </button>
+          )}
           {onToggleBookmark && (
             <button
               className={`agent-flow__bookmark-btn${bookmarked ? ' agent-flow__bookmark-btn--active' : ''}`}
               onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
               title={bookmarked ? 'Remove bookmark' : 'Bookmark event'}
               type="button"
+              aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark event'}
+              aria-pressed={bookmarked}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -295,7 +322,7 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
             <div className="agent-flow__tool-header">
               <span className="agent-flow__tool-name">{event.tool}</span>
               {event.argsJson && onToggleArgs && (
-                <button className="agent-flow__tool-toggle" onClick={onToggleArgs} type="button">
+                <button className="agent-flow__tool-toggle" onClick={onToggleArgs} type="button" aria-label={showArgs ? 'Hide arguments' : 'Show arguments'} aria-expanded={showArgs}>
                   {showArgs ? '▼' : '▶'} args
                 </button>
               )}
@@ -344,6 +371,8 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
     relativeTime: useRelativeTime = false,
     bookmarked = false,
     onToggleBookmark,
+    pinned = false,
+    onTogglePin,
   },
   ref,
 ) {
@@ -355,10 +384,12 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
   return (
     <div
       ref={ref}
-      className={`agent-flow__timeline-item agent-flow__timeline-item--${event.type}${collapsed ? ' agent-flow__timeline-item--collapsed' : ''}${highlighted ? ' agent-flow__event--highlight' : ''}${bookmarked ? ' agent-flow__event--bookmarked' : ''}`}
+      className={`agent-flow__timeline-item agent-flow__timeline-item--${event.type}${collapsed ? ' agent-flow__timeline-item--collapsed' : ''}${highlighted ? ' agent-flow__event--highlight' : ''}${bookmarked ? ' agent-flow__event--bookmarked' : ''}${pinned ? ' agent-flow__event--pinned' : ''}`}
       onClick={onToggle}
       role="button"
       tabIndex={0}
+      aria-expanded={!collapsed}
+      aria-label={`${event.type} event${event.tool ? `: ${event.tool}` : ''}`}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           onToggle();
@@ -385,12 +416,30 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
             </span>
           )}
           {time && <span className="agent-flow__event-time">{time}</span>}
+          {onTogglePin && (
+            <button
+              className={`agent-flow__pin-btn${pinned ? ' agent-flow__pin-btn--active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onTogglePin(); }}
+              title={pinned ? 'Unpin event' : 'Pin event to top'}
+              type="button"
+              aria-label={pinned ? 'Unpin event' : 'Pin event to top'}
+              aria-pressed={pinned}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill={pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 17v5" />
+                <path d="M5 17h14l-1.5-6H6.5L5 17z" />
+                <path d="M9 3h6v6l-3 3-3-3V3z" />
+              </svg>
+            </button>
+          )}
           {onToggleBookmark && (
             <button
               className={`agent-flow__bookmark-btn${bookmarked ? ' agent-flow__bookmark-btn--active' : ''}`}
               onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
               title={bookmarked ? 'Remove bookmark' : 'Bookmark event'}
               type="button"
+              aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark event'}
+              aria-pressed={bookmarked}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -403,6 +452,7 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
               onClick={(e) => { e.stopPropagation(); onEventClick(event); }}
               title="View details"
               type="button"
+              aria-label="View event details"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" />
@@ -411,7 +461,7 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
               </svg>
             </button>
           )}
-          <span className={`agent-flow__timeline-chevron${collapsed ? '' : ' agent-flow__timeline-chevron--open'}`}>
+          <span className={`agent-flow__timeline-chevron${collapsed ? '' : ' agent-flow__timeline-chevron--open'}`} aria-hidden="true">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 18l6-6-6-6" />
             </svg>
@@ -432,7 +482,7 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
                   <div className="agent-flow__tool-header">
                     <span className="agent-flow__tool-name">{event.tool}</span>
                     {event.argsJson && onToggleArgs && (
-                      <button className="agent-flow__tool-toggle" onClick={onToggleArgs} type="button">
+                      <button className="agent-flow__tool-toggle" onClick={onToggleArgs} type="button" aria-label={showArgs ? 'Hide arguments' : 'Show arguments'} aria-expanded={showArgs}>
                         {showArgs ? '▼' : '▶'} args
                       </button>
                     )}
@@ -442,6 +492,7 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
                         onClick={(e) => { e.stopPropagation(); copyToClipboard(generateCurlCommand(event)); }}
                         title="Copy as cURL"
                         type="button"
+                        aria-label="Copy as cURL command"
                       >
                         curl
                       </button>
