@@ -12,6 +12,23 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import './AgentFlow.css';
 
 import type { AgentFlowProps, FlowEvent, EventType } from './types';
+
+/** A virtual list item: either a group header or an event */
+interface GroupHeaderItem {
+  kind: 'header';
+  agentName: string;
+  agentColor: string | undefined;
+  count: number;
+  key: string;
+}
+
+interface EventItem {
+  kind: 'event';
+  event: FlowEvent;
+  key: number;
+}
+
+type VirtualListItem = GroupHeaderItem | EventItem;
 import { useSSE } from './useSSE';
 import { EventRow, TimelineRow } from './EventRow';
 import { exportToJSON, exportToCSV, copyToClipboard, EVENT_DOT_COLORS } from './utils';
@@ -86,6 +103,8 @@ export function AgentFlow({
   const [showStatusDetails, setShowStatusDetails] = useState(false);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<number>>(new Set());
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
+  const [groupByAgent, setGroupByAgent] = useState(false);
+  const [collapsedAgentGroups, setCollapsedAgentGroups] = useState<Set<string>>(new Set());
   const parentRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -157,6 +176,51 @@ export function AgentFlow({
     if (!showBookmarkedOnly) return typeFilteredEvents;
     return typeFilteredEvents.filter(e => bookmarkedIds.has(e.id));
   }, [typeFilteredEvents, showBookmarkedOnly, bookmarkedIds]);
+
+  // Toggle agent group collapse
+  const toggleAgentGroup = useCallback((agentName: string) => {
+    setCollapsedAgentGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(agentName)) next.delete(agentName);
+      else next.add(agentName);
+      return next;
+    });
+  }, []);
+
+  // Build virtual list items (grouped or flat)
+  const virtualListItems = useMemo((): VirtualListItem[] => {
+    if (!groupByAgent || viewMode === 'timeline') return bookmarkFilteredEvents.map(e => ({ kind: 'event' as const, event: e, key: e.id }));
+
+    // Group events by agent name, preserving order
+    const groups = new Map<string, FlowEvent[]>();
+    const groupOrder: string[] = [];
+    for (const e of bookmarkFilteredEvents) {
+      const name = e.agentName || 'Unknown Agent';
+      if (!groups.has(name)) {
+        groups.set(name, []);
+        groupOrder.push(name);
+      }
+      groups.get(name)!.push(e);
+    }
+
+    // If only one group (or none), don't bother grouping
+    if (groupOrder.length <= 1) {
+      return bookmarkFilteredEvents.map(e => ({ kind: 'event' as const, event: e, key: e.id }));
+    }
+
+    const items: VirtualListItem[] = [];
+    for (const name of groupOrder) {
+      const events = groups.get(name)!;
+      const agentColor = events[0]?.agentColor;
+      items.push({ kind: 'header', agentName: name, agentColor, count: events.length, key: `group-${name}` });
+      if (!collapsedAgentGroups.has(name)) {
+        for (const e of events) {
+          items.push({ kind: 'event', event: e, key: e.id });
+        }
+      }
+    }
+    return items;
+  }, [bookmarkFilteredEvents, groupByAgent, viewMode, collapsedAgentGroups]);
 
   // Keyboard shortcut for search, help, and Escape handling
   useEffect(() => {
@@ -241,6 +305,8 @@ export function AgentFlow({
     setHighlightedEventId(null);
     setBookmarkedIds(new Set());
     setShowBookmarkedOnly(false);
+    setGroupByAgent(false);
+    setCollapsedAgentGroups(new Set());
   }, [clearEvents]);
 
   // Cleanup highlight timer on unmount
@@ -284,11 +350,14 @@ export function AgentFlow({
 
   // Virtual scrolling with dynamic height measurement
   const virtualizer = useVirtualizer({
-    count: bookmarkFilteredEvents.length,
+    count: virtualListItems.length,
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => {
-      const event = bookmarkFilteredEvents[index];
-      if (!event) return 80;
+      const item = virtualListItems[index];
+      if (!item) return 80;
+      // Group headers are shorter
+      if (item.kind === 'header') return 36;
+      const event = item.event;
       // Dynamic estimate based on event type
       if (event.type === 'tool_call' && event.argsJson) {
         const lineCount = (event.argsJson.match(/\n/g)?.length ?? 0) + 1;
@@ -305,52 +374,57 @@ export function AgentFlow({
       return 80;
     },
     overscan: 5,
-    getItemKey: (index) => bookmarkFilteredEvents[index]?.id ?? index,
+    getItemKey: (index) => {
+      const item = virtualListItems[index];
+      if (!item) return index;
+      return item.key;
+    },
   });
 
   // Auto-scroll to bottom when new events arrive (if enabled)
   useEffect(() => {
-    if (autoScroll && bookmarkFilteredEvents.length > 0) {
+    if (autoScroll && virtualListItems.length > 0) {
       requestAnimationFrame(() => {
-        virtualizer.scrollToIndex(bookmarkFilteredEvents.length - 1, { align: 'end' });
+        virtualizer.scrollToIndex(virtualListItems.length - 1, { align: 'end' });
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookmarkFilteredEvents.length, autoScroll]);
+  }, [virtualListItems.length, autoScroll]);
 
   // Scroll to bottom (also re-enables auto-scroll)
   const scrollToBottom = useCallback(() => {
     setAutoScroll(true);
-    virtualizer.scrollToIndex(bookmarkFilteredEvents.length - 1, { align: 'end' });
-  }, [virtualizer, bookmarkFilteredEvents.length]);
+    virtualizer.scrollToIndex(virtualListItems.length - 1, { align: 'end' });
+  }, [virtualizer, virtualListItems.length]);
 
-  // Track error event indices for jump navigation
+  // Track error event indices for jump navigation (indices into virtualListItems)
   const errorIndices = useMemo(() => {
     const indices: number[] = [];
-    for (let i = 0; i < bookmarkFilteredEvents.length; i++) {
-      if (bookmarkFilteredEvents[i].type === 'error') {
+    for (let i = 0; i < virtualListItems.length; i++) {
+      const item = virtualListItems[i];
+      if (item.kind === 'event' && item.event.type === 'error') {
         indices.push(i);
       }
     }
     return indices;
-  }, [bookmarkFilteredEvents]);
+  }, [virtualListItems]);
 
   // Jump to next error event
   const jumpToNextError = useCallback(() => {
     if (errorIndices.length === 0) return;
     const nextIdx = currentErrorNavIndex % errorIndices.length;
-    const eventIndex = errorIndices[nextIdx];
-    virtualizer.scrollToIndex(eventIndex, { align: 'center' });
-    const eventId = bookmarkFilteredEvents[eventIndex]?.id;
-    if (eventId !== undefined) {
-      setHighlightedEventId(eventId);
+    const itemIndex = errorIndices[nextIdx];
+    virtualizer.scrollToIndex(itemIndex, { align: 'center' });
+    const item = virtualListItems[itemIndex];
+    if (item && item.kind === 'event') {
+      setHighlightedEventId(item.event.id);
       if (highlightTimerRef.current) {
         clearTimeout(highlightTimerRef.current);
       }
       highlightTimerRef.current = setTimeout(() => setHighlightedEventId(null), 2000);
     }
     setCurrentErrorNavIndex(prev => prev + 1);
-  }, [errorIndices, currentErrorNavIndex, virtualizer, bookmarkFilteredEvents]);
+  }, [errorIndices, currentErrorNavIndex, virtualizer, virtualListItems]);
 
 
   // Determine if any filters are active
@@ -606,6 +680,23 @@ export function AgentFlow({
             </select>
           )}
 
+          {/* Group by agent toggle (only shown when multiple agents exist and in list view) */}
+          {stats.agents.length > 1 && viewMode === 'list' && (
+            <button
+              className={`agent-flow__header-btn${groupByAgent ? ' agent-flow__header-btn--active' : ''}`}
+              onClick={() => setGroupByAgent(prev => !prev)}
+              title={groupByAgent ? 'Show flat list' : 'Group by agent'}
+              type="button"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+              </svg>
+            </button>
+          )}
+
           {status === 'connected' && (
             <button className="agent-flow__connect-btn" onClick={disconnect} type="button">
               Disconnect
@@ -738,7 +829,7 @@ export function AgentFlow({
       {/* Events (virtualized) */}
       <div className="agent-flow__events-wrapper">
         <div ref={parentRef} className="agent-flow__events">
-          {bookmarkFilteredEvents.length === 0 ? (
+          {virtualListItems.length === 0 ? (
             <div className="agent-flow__empty">
               {hasActiveFilters ? 'No matching events' : 'No events yet. Waiting for agent...'}
             </div>
@@ -748,7 +839,48 @@ export function AgentFlow({
               style={{ height: virtualizer.getTotalSize() }}
             >
               {virtualizer.getVirtualItems().map((virtualRow) => {
-                const event = bookmarkFilteredEvents[virtualRow.index];
+                const item = virtualListItems[virtualRow.index];
+                if (!item) return null;
+
+                // Render group header
+                if (item.kind === 'header') {
+                  return (
+                    <div
+                      key={item.key}
+                      className="agent-flow__event-row"
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                      data-index={virtualRow.index}
+                      ref={virtualizer.measureElement}
+                    >
+                      <button
+                        className="agent-flow__group-header"
+                        onClick={() => toggleAgentGroup(item.agentName)}
+                        type="button"
+                      >
+                        <span
+                          className="agent-flow__group-dot"
+                          style={{ background: item.agentColor || 'var(--af-accent)' }}
+                        />
+                        <span className="agent-flow__group-name">{item.agentName}</span>
+                        <span className="agent-flow__group-count">{item.count}</span>
+                        <span className={`agent-flow__group-chevron${collapsedAgentGroups.has(item.agentName) ? '' : ' agent-flow__group-chevron--open'}`}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9 18l6-6-6-6" />
+                          </svg>
+                        </span>
+                      </button>
+                    </div>
+                  );
+                }
+
+                // Render event
+                const event = item.event;
                 return (
                   <div
                     key={event.id}
@@ -798,7 +930,7 @@ export function AgentFlow({
             </div>
           )}
         </div>
-        {bookmarkFilteredEvents.length > 0 && (
+        {virtualListItems.length > 0 && (
           <div className="agent-flow__scroll-controls">
             <button
               className={`agent-flow__auto-scroll-btn${autoScroll ? ' agent-flow__auto-scroll-btn--active' : ''}`}
