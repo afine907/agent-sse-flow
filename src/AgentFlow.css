@@ -1,6 +1,12 @@
 /**
  * AgentFlow Styles
  * Production-grade visual design for agent trace visualization
+ *
+ * Z-Index Layering Convention:
+ *   z-index: 1   — Base content (result action bars, timeline dots)
+ *   z-index: 10  — Scroll-to-bottom button
+ *   z-index: 20  — Search bar (reserved)
+ *   z-index: 30  — Dropdowns / modals (reserved)
  */
 
 /* =============================================

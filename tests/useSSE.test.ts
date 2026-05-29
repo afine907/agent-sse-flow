@@ -718,4 +718,228 @@ describe('useSSE', () => {
 
     expect(MockEventSource.instances).toHaveLength(3)
   })
+
+  // ─── Auto-Reconnect Detailed ──────────────────────────────────────────
+
+  describe('auto-reconnect detailed', () => {
+    it('reconnect timer resets to base delay on successful reconnection', async () => {
+      const onStatusChange = vi.fn()
+      const { result } = renderHook(() =>
+        useSSE({ ...defaultOptions, autoReconnect: true, maxReconnectAttempts: 10, onStatusChange })
+      )
+
+      act(() => { result.current.connect() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+      expect(result.current.status).toBe('connected')
+
+      // First error: backoff = 1000ms
+      act(() => { MockEventSource.instances[0].simulateError() })
+      expect(result.current.status).toBe('error')
+
+      // Wait for reconnect (1000ms base)
+      await act(async () => { await vi.advanceTimersByTimeAsync(1100) })
+      expect(MockEventSource.instances).toHaveLength(2)
+
+      // Reconnect succeeds (onopen fires)
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+      expect(result.current.status).toBe('connected')
+
+      // Second error after successful reconnect: backoff should still be 1000ms (reset)
+      act(() => { MockEventSource.instances[1].simulateError() })
+
+      // If reset works, reconnect happens at 1000ms, not 2000ms
+      await act(async () => { await vi.advanceTimersByTimeAsync(1100) })
+      expect(MockEventSource.instances).toHaveLength(3)
+
+      // Third error: backoff still 1000ms (reset again after 2nd successful connection)
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+      act(() => { MockEventSource.instances[2].simulateError() })
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(1100) })
+      expect(MockEventSource.instances).toHaveLength(4)
+    })
+
+    it('survives multiple error-reconnect-success cycles', async () => {
+      const onStatusChange = vi.fn()
+      const { result } = renderHook(() =>
+        useSSE({ ...defaultOptions, autoReconnect: true, maxReconnectAttempts: 5, onStatusChange })
+      )
+
+      act(() => { result.current.connect() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+
+      // Cycle through 4 rounds of error -> reconnect -> success
+      for (let i = 0; i < 4; i++) {
+        act(() => { MockEventSource.instances[i].simulateError() })
+        expect(result.current.status).toBe('error')
+
+        await act(async () => { await vi.advanceTimersByTimeAsync(1100) })
+        expect(MockEventSource.instances).toHaveLength(i + 2)
+
+        await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+        expect(result.current.status).toBe('connected')
+      }
+
+      // Should have 5 total instances (original + 4 reconnects)
+      expect(MockEventSource.instances).toHaveLength(5)
+    })
+
+    it('reconnect stops after manual disconnect even if timer is pending', async () => {
+      const { result } = renderHook(() =>
+        useSSE({ ...defaultOptions, autoReconnect: true, maxReconnectAttempts: 10 })
+      )
+
+      act(() => { result.current.connect() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+
+      // Trigger error -> schedules reconnect at 1000ms
+      act(() => { MockEventSource.instances[0].simulateError() })
+      expect(result.current.status).toBe('error')
+
+      // Disconnect manually BEFORE the 1000ms timer fires
+      act(() => { result.current.disconnect() })
+      expect(result.current.status).toBe('disconnected')
+
+      // Advance past the would-be reconnect time
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+
+      // No new EventSource should have been created
+      expect(MockEventSource.instances).toHaveLength(1)
+      expect(result.current.status).toBe('disconnected')
+    })
+
+    it('respects custom maxReconnectAttempts of 1', async () => {
+      const onError = vi.fn()
+      const { result } = renderHook(() =>
+        useSSE({ ...defaultOptions, autoReconnect: true, maxReconnectAttempts: 1, onError })
+      )
+
+      suppressAutoOpen = true
+
+      act(() => { result.current.connect() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+
+      // First error -> attempts becomes 1, which equals max (1)
+      // scheduleReconnect still runs since attempts < max at scheduling time
+      act(() => { MockEventSource.instances[0].simulateError() })
+
+      // Wait for reconnect (attempts was 0, now 1)
+      await act(async () => { await vi.advanceTimersByTimeAsync(1100) })
+      expect(MockEventSource.instances).toHaveLength(2)
+
+      // Second error -> attempts (1) >= max (1) -> give up
+      act(() => { MockEventSource.instances[1].simulateError() })
+
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({
+        message: expect.stringContaining('Max reconnect attempts'),
+      }))
+
+      // No further reconnects
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+      expect(MockEventSource.instances).toHaveLength(2)
+    })
+
+    it('respects custom maxReconnectAttempts of 5', async () => {
+      const onError = vi.fn()
+      const { result } = renderHook(() =>
+        useSSE({ ...defaultOptions, autoReconnect: true, maxReconnectAttempts: 5, onError })
+      )
+
+      suppressAutoOpen = true
+
+      act(() => { result.current.connect() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+
+      // Exhaust all 5 reconnect attempts
+      for (let i = 0; i < 5; i++) {
+        act(() => { MockEventSource.instances[i].simulateError() })
+
+        const backoff = Math.min(1000 * Math.pow(2, i), 30000)
+        await act(async () => { await vi.advanceTimersByTimeAsync(backoff + 100) })
+      }
+
+      // Should have 6 instances (original + 5 reconnects)
+      expect(MockEventSource.instances).toHaveLength(6)
+
+      // 6th error -> attempts (5) >= max (5) -> stop
+      act(() => { MockEventSource.instances[5].simulateError() })
+
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({
+        message: expect.stringContaining('Max reconnect attempts'),
+      }))
+
+      // No more reconnects
+      await act(async () => { await vi.advanceTimersByTimeAsync(10000) })
+      expect(MockEventSource.instances).toHaveLength(6)
+    })
+
+    it('exponential backoff delay caps at 30 seconds', async () => {
+      const { result } = renderHook(() =>
+        useSSE({ ...defaultOptions, autoReconnect: true, maxReconnectAttempts: 20 })
+      )
+
+      suppressAutoOpen = true
+
+      act(() => { result.current.connect() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+
+      // Error multiple times without successful connection to increase backoff
+      // attempts 0 -> delay 1000
+      act(() => { MockEventSource.instances[0].simulateError() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(1100) })
+
+      // attempts 1 -> delay 2000
+      act(() => { MockEventSource.instances[1].simulateError() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(2100) })
+
+      // attempts 2 -> delay 4000
+      act(() => { MockEventSource.instances[2].simulateError() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(4100) })
+
+      // attempts 3 -> delay 8000
+      act(() => { MockEventSource.instances[3].simulateError() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(8100) })
+
+      // attempts 4 -> delay 16000
+      act(() => { MockEventSource.instances[4].simulateError() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(16100) })
+
+      // attempts 5 -> delay 32000, but capped at 30000
+      act(() => { MockEventSource.instances[5].simulateError() })
+
+      // At 29000ms, reconnect should NOT have fired yet
+      await act(async () => { await vi.advanceTimersByTimeAsync(29000) })
+      expect(MockEventSource.instances).toHaveLength(6)
+
+      // At 30000ms, reconnect should fire
+      await act(async () => { await vi.advanceTimersByTimeAsync(1100) })
+      expect(MockEventSource.instances).toHaveLength(7)
+    })
+
+    it('continues receiving messages after successful reconnect', async () => {
+      const { result } = renderHook(() =>
+        useSSE({ ...defaultOptions, autoReconnect: true, maxReconnectAttempts: 5 })
+      )
+
+      act(() => { result.current.connect() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+
+      // Send message on first connection
+      act(() => { MockEventSource.instances[0].simulateMessage({ type: 'start', message: 'Before error' }) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+
+      // Error and reconnect
+      act(() => { MockEventSource.instances[0].simulateError() })
+      await act(async () => { await vi.advanceTimersByTimeAsync(1100) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(20) })
+
+      // Send message on second connection
+      act(() => { MockEventSource.instances[1].simulateMessage({ type: 'message', message: 'After reconnect' }) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+
+      expect(result.current.events).toHaveLength(2)
+      expect(result.current.events[0].message).toBe('Before error')
+      expect(result.current.events[1].message).toBe('After reconnect')
+    })
+  })
 })
