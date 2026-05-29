@@ -230,6 +230,9 @@ export function usePolling({
       requestHeaders['Last-Event-ID'] = lastEventIdRef.current;
     }
 
+    // Set up request timeout
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
     try {
       const response = await fetch(url, {
         method: 'GET',
@@ -285,6 +288,8 @@ export function usePolling({
         scheduleReconnect();
         return; // Don't schedule next poll; reconnect will handle it
       }
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     // Schedule next poll (immediate for long-polling, interval for standard)

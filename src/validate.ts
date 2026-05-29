@@ -5,8 +5,6 @@
  * Returns structured validation errors with field-level details.
  */
 
-import type { EventType } from './types';
-
 // Valid EventType values
 const VALID_EVENT_TYPES: ReadonlySet<string> = new Set([
   'start',
