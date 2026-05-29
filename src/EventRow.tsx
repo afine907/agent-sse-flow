@@ -55,6 +55,8 @@ interface RowProps {
   renderResult?: (result: string) => React.ReactNode;
   showArgs?: boolean;
   onToggleArgs?: () => void;
+  /** Called when the event row is clicked to show detail modal */
+  onEventClick?: (event: FlowEvent) => void;
 }
 
 /** EventRow — list/card view */
@@ -65,13 +67,25 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
     renderResult,
     showArgs = true,
     onToggleArgs,
+    onEventClick,
   },
   ref,
 ) {
   const time = event.timestamp ? formatTime(event.timestamp) : null;
 
   return (
-    <div ref={ref} className={`agent-flow__event agent-flow__event--${event.type}`}>
+    <div
+      ref={ref}
+      className={`agent-flow__event agent-flow__event--${event.type} agent-flow__event--clickable`}
+      onClick={() => onEventClick?.(event)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          onEventClick?.(event);
+        }
+      }}
+    >
       <EventIcon type={event.type} />
       <div className="agent-flow__event-content">
         <div className="agent-flow__event-header">
@@ -141,6 +155,7 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
     renderResult,
     showArgs = true,
     onToggleArgs,
+    onEventClick,
   },
   ref,
 ) {
@@ -171,6 +186,20 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
           <span className="agent-flow__timeline-label">{event.type}</span>
           <span className="agent-flow__timeline-summary">{getSummary(event)}</span>
           {time && <span className="agent-flow__event-time">{time}</span>}
+          {onEventClick && (
+            <button
+              className="agent-flow__detail-btn"
+              onClick={(e) => { e.stopPropagation(); onEventClick(event); }}
+              title="View details"
+              type="button"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+            </button>
+          )}
           <span className={`agent-flow__timeline-chevron${collapsed ? '' : ' agent-flow__timeline-chevron--open'}`}>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 18l6-6-6-6" />
