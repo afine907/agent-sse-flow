@@ -12,6 +12,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import './AgentFlow.css';
 
 import type { AgentFlowProps, FlowEvent, EventType } from './types';
+import { useVisibleRows } from './useVisibleRows';
 
 /** A virtual list item: either a group header or an event */
 interface GroupHeaderItem {
@@ -452,6 +453,23 @@ export function AgentFlow({
       return item.key;
     },
   });
+
+  // IntersectionObserver: track which rows have entered the viewport.
+  // Rows that haven't been scrolled into view yet render a lightweight
+  // placeholder instead of the full EventRow / TimelineRow. This reduces
+  // the cost of rendering expensive content (e.g. ReactMarkdown) for
+  // rows at the edges of the overscan buffer.
+  const { measureRef, isVisible } = useVisibleRows(parentRef);
+
+  // Combined ref callback: measures the element for the virtualizer AND
+  // registers it with the IntersectionObserver.
+  const rowRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      virtualizer.measureElement(element);
+      measureRef(element);
+    },
+    [virtualizer, measureRef],
+  );
 
   // Auto-scroll to bottom when new events arrive (if enabled)
   useEffect(() => {
@@ -931,7 +949,7 @@ export function AgentFlow({
                         transform: `translateY(${virtualRow.start}px)`,
                       }}
                       data-index={virtualRow.index}
-                      ref={virtualizer.measureElement}
+                      ref={rowRef}
                     >
                       <button
                         className="agent-flow__group-header"
@@ -954,8 +972,11 @@ export function AgentFlow({
                   );
                 }
 
-                // Render event
+                // Render event — full content only when the row has been
+                // scrolled into the viewport; otherwise render a lightweight
+                // placeholder to avoid expensive markdown / layout work.
                 const event = item.event;
+                const visible = isVisible(virtualRow.index);
                 return (
                   <div
                     key={event.id}
@@ -968,23 +989,27 @@ export function AgentFlow({
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
                     data-index={virtualRow.index}
-                    ref={virtualizer.measureElement}
+                    ref={rowRef}
                   >
-                    <MemoizedEventRow
-                      event={event}
-                      collapsedIds={collapsedIds}
-                      expandedArgsIds={expandedArgsIds}
-                      bookmarkedIds={bookmarkedIds}
-                      highlightedEventId={highlightedEventId}
-                      relativeTime={relativeTime}
-                      renderMessage={renderMessage}
-                      renderResult={renderResult}
-                      viewMode={viewMode}
-                      onToggleCollapse={toggleCollapse}
-                      onToggleArgs={toggleArgs}
-                      onToggleBookmark={toggleBookmark}
-                      onEventClick={setSelectedEvent}
-                    />
+                    {visible ? (
+                      <MemoizedEventRow
+                        event={event}
+                        collapsedIds={collapsedIds}
+                        expandedArgsIds={expandedArgsIds}
+                        bookmarkedIds={bookmarkedIds}
+                        highlightedEventId={highlightedEventId}
+                        relativeTime={relativeTime}
+                        renderMessage={renderMessage}
+                        renderResult={renderResult}
+                        viewMode={viewMode}
+                        onToggleCollapse={toggleCollapse}
+                        onToggleArgs={toggleArgs}
+                        onToggleBookmark={toggleBookmark}
+                        onEventClick={setSelectedEvent}
+                      />
+                    ) : (
+                      <div className="agent-flow__row-placeholder" />
+                    )}
                   </div>
                 );
               })}
