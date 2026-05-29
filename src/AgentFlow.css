@@ -275,10 +275,22 @@
   width: 100%;
 }
 
-/* Virtual scroll row */
+/* Virtual scroll row
+ * CSS Performance Strategy:
+ *   - contain: content  — isolates layout/paint so the browser can skip
+ *     off-screen rows entirely during style/layout recalculations.
+ *   - content-visibility: auto — tells the browser to skip rendering
+ *     work for off-screen rows (paint, compositing). Combined with
+ *     contain-intrinsic-size, the browser reserves space without
+ *     computing the actual content until the row scrolls into view.
+ *   This is critical for 100K+ event lists: only ~20 rows are rendered
+ *   at any time while the rest incur near-zero rendering cost.
+ */
 .agent-flow__event-row {
   padding-bottom: 8px;
-  contain: layout style;
+  contain: content;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 80px;
 }
 
 /* =============================================
@@ -786,6 +798,7 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  will-change: transform;
   transition: transform 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
   background: var(--af-bg-raised);
   color: var(--af-text-secondary);
@@ -813,6 +826,7 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  will-change: transform;
   transition: transform 0.15s, opacity 0.15s, background 0.15s;
   background: var(--af-bg-raised);
   color: var(--af-text-secondary);
