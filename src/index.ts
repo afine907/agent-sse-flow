@@ -42,3 +42,7 @@ export { useWebSocket } from './adapters/websocket';
 export type { UseWebSocketOptions, UseWebSocketReturn, ConnectionStatus } from './adapters/websocket';
 export { usePolling } from './adapters/polling';
 export type { UsePollingOptions, UsePollingReturn } from './adapters/polling';
+
+// Validation
+export { validateFlowEvent, formatValidationErrors } from './validate';
+export type { ValidationError, ValidationResult } from './validate';
