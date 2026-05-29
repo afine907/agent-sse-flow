@@ -387,57 +387,59 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
             </svg>
           </span>
         </div>
-        {!collapsed && (
-          <div className="agent-flow__timeline-detail" onClick={e => e.stopPropagation()}>
-            {event.message && (
-              <TruncatedContent
-                content={event.message}
-                className="agent-flow__event-message agent-flow__markdown"
-                render={renderMessage}
-              />
-            )}
-            {event.tool && (
-              <div className="agent-flow__event-tool">
-                <div className="agent-flow__tool-header">
-                  <span className="agent-flow__tool-name">{event.tool}</span>
-                  {event.argsJson && onToggleArgs && (
-                    <button className="agent-flow__tool-toggle" onClick={onToggleArgs} type="button">
-                      {showArgs ? '▼' : '▶'} args
-                    </button>
-                  )}
-                  {event.type === 'tool_call' && (
-                    <button
-                      className="agent-flow__tool-toggle"
-                      onClick={(e) => { e.stopPropagation(); copyToClipboard(generateCurlCommand(event)); }}
-                      title="Copy as cURL"
-                      type="button"
-                    >
-                      curl
-                    </button>
-                  )}
-                </div>
-                {showArgs && event.argsJson && (
-                  <pre className="agent-flow__tool-args">
-                    <CopyButton text={event.argsJson} />
-                    {event.argsJson}
-                  </pre>
-                )}
-              </div>
-            )}
-            {event.result && (
-              <div className="agent-flow__event-result">
-                <div className="agent-flow__event-result-actions">
-                  <CopyButton text={event.result} />
-                </div>
+        <div className={`agent-flow__timeline-detail-wrapper${collapsed ? ' agent-flow__timeline-detail-wrapper--collapsed' : ''}`} onClick={e => e.stopPropagation()}>
+          <div className="agent-flow__timeline-detail-inner">
+            <div className="agent-flow__timeline-detail">
+              {event.message && (
                 <TruncatedContent
-                  content={event.result}
-                  className="agent-flow__event-result-content agent-flow__markdown"
-                  render={renderResult}
+                  content={event.message}
+                  className="agent-flow__event-message agent-flow__markdown"
+                  render={renderMessage}
                 />
-              </div>
-            )}
+              )}
+              {event.tool && (
+                <div className="agent-flow__event-tool">
+                  <div className="agent-flow__tool-header">
+                    <span className="agent-flow__tool-name">{event.tool}</span>
+                    {event.argsJson && onToggleArgs && (
+                      <button className="agent-flow__tool-toggle" onClick={onToggleArgs} type="button">
+                        {showArgs ? '▼' : '▶'} args
+                      </button>
+                    )}
+                    {event.type === 'tool_call' && (
+                      <button
+                        className="agent-flow__tool-toggle"
+                        onClick={(e) => { e.stopPropagation(); copyToClipboard(generateCurlCommand(event)); }}
+                        title="Copy as cURL"
+                        type="button"
+                      >
+                        curl
+                      </button>
+                    )}
+                  </div>
+                  {showArgs && event.argsJson && (
+                    <pre className="agent-flow__tool-args">
+                      <CopyButton text={event.argsJson} />
+                      {event.argsJson}
+                    </pre>
+                  )}
+                </div>
+              )}
+              {event.result && (
+                <div className="agent-flow__event-result">
+                  <div className="agent-flow__event-result-actions">
+                    <CopyButton text={event.result} />
+                  </div>
+                  <TruncatedContent
+                    content={event.result}
+                    className="agent-flow__event-result-content agent-flow__markdown"
+                    render={renderResult}
+                  />
+                </div>
+              )}
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
