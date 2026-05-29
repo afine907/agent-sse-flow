@@ -1404,6 +1404,69 @@
 }
 
 /* =============================================
+   Bookmark Button
+   ============================================= */
+
+.agent-flow__bookmark-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--af-text-tertiary);
+  background: transparent;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.agent-flow__event:hover .agent-flow__bookmark-btn,
+.agent-flow__timeline-item:hover .agent-flow__bookmark-btn {
+  opacity: 0.7;
+}
+
+.agent-flow__bookmark-btn:hover {
+  opacity: 1 !important;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.agent-flow__bookmark-btn--active {
+  color: #f59e0b;
+  opacity: 0.8 !important;
+}
+
+.agent-flow__bookmark-btn--active:hover {
+  opacity: 1 !important;
+}
+
+/* Bookmarked event highlight */
+.agent-flow__event--bookmarked {
+  border-left: 2.5px solid #f59e0b !important;
+}
+
+.agent-flow--dark .agent-flow__event--bookmarked {
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.agent-flow--light .agent-flow__event--bookmarked {
+  background: rgba(245, 158, 11, 0.04);
+}
+
+.agent-flow__bookmark-count {
+  font-size: 11px;
+  color: #f59e0b;
+  font-family: var(--af-mono);
+  font-weight: 400;
+  padding: 1px 6px;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 4px;
+}
+
+/* =============================================
    Clickable Event Row
    ============================================= */
 
