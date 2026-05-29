@@ -181,6 +181,9 @@ export function AgentFlow({
   const [groupByAgent, setGroupByAgent] = useState(false);
   const [collapsedAgentGroups, setCollapsedAgentGroups] = useState<Set<string>>(new Set());
   const [compact, setCompact] = useState(false);
+  const [agentOrder, setAgentOrder] = useState<string[]>([]);
+  const [dragOverAgent, setDragOverAgent] = useState<string | null>(null);
+  const dragAgentRef = useRef<string | null>(null);
   // Merge customTheme CSS variable overrides with the user-supplied style prop
   const mergedStyle = useMemo(
     () => (customTheme ? { ...style, ...customTheme } : style),
@@ -287,6 +290,60 @@ export function AgentFlow({
     });
   }, []);
 
+  // Sync agentOrder when new agents appear
+  const orderedAgents = useMemo(() => {
+    const known = stats.agents;
+    if (agentOrder.length === 0) return known;
+    // Merge: keep existing order, append new agents at the end
+    const seen = new Set(agentOrder);
+    const merged = [...agentOrder.filter(a => known.includes(a))];
+    for (const a of known) {
+      if (!seen.has(a)) merged.push(a);
+    }
+    return merged;
+  }, [stats.agents, agentOrder]);
+
+  // Drag handlers for agent reordering
+  const handleDragStart = useCallback((agent: string, e: React.DragEvent) => {
+    dragAgentRef.current = agent;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', agent);
+    const el = e.currentTarget as HTMLElement;
+    el.classList.add('agent-flow__agent-dragging');
+  }, []);
+
+  const handleDragOver = useCallback((agent: string, e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverAgent(agent);
+  }, []);
+
+  const handleDrop = useCallback((targetAgent: string, e: React.DragEvent) => {
+    e.preventDefault();
+    const sourceAgent = dragAgentRef.current;
+    if (!sourceAgent || sourceAgent === targetAgent) {
+      setDragOverAgent(null);
+      return;
+    }
+    setAgentOrder(prev => {
+      const current = prev.length > 0 ? [...prev] : [...orderedAgents];
+      const fromIdx = current.indexOf(sourceAgent);
+      const toIdx = current.indexOf(targetAgent);
+      if (fromIdx === -1 || toIdx === -1) return prev.length > 0 ? prev : [];
+      current.splice(fromIdx, 1);
+      current.splice(toIdx, 0, sourceAgent);
+      return current;
+    });
+    setDragOverAgent(null);
+    dragAgentRef.current = null;
+  }, [orderedAgents]);
+
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    (e.currentTarget as HTMLElement).classList.remove('agent-flow__agent-dragging');
+    setDragOverAgent(null);
+    dragAgentRef.current = null;
+  }, []);
+
   // Build virtual list items (grouped or flat)
   const virtualListItems = useMemo((): VirtualListItem[] => {
     if (!groupByAgent || viewMode === 'timeline' || viewMode === 'waterfall') return bookmarkFilteredEvents.map(e => ({ kind: 'event' as const, event: e, key: e.id }));
@@ -301,6 +358,20 @@ export function AgentFlow({
         groupOrder.push(name);
       }
       groups.get(name)!.push(e);
+    }
+
+    // Apply user-defined agent order if set
+    if (orderedAgents.length > 0 && agentOrder.length > 0) {
+      const reordered: string[] = [];
+      for (const a of orderedAgents) {
+        if (groups.has(a)) reordered.push(a);
+      }
+      // Append any agents not in orderedAgents (e.g. new ones that appeared)
+      for (const name of groupOrder) {
+        if (!reordered.includes(name)) reordered.push(name);
+      }
+      groupOrder.length = 0;
+      groupOrder.push(...reordered);
     }
 
     // If only one group (or none), don't bother grouping
@@ -321,7 +392,7 @@ export function AgentFlow({
       }
     }
     return items;
-  }, [bookmarkFilteredEvents, groupByAgent, viewMode, collapsedAgentGroups]);
+  }, [bookmarkFilteredEvents, groupByAgent, viewMode, collapsedAgentGroups, orderedAgents, agentOrder]);
 
   // Keyboard shortcut for search, help, and Escape handling
   useEffect(() => {
@@ -420,6 +491,26 @@ export function AgentFlow({
     document.body.style.userSelect = 'none';
   }, []);
 
+  // Touch swipe handling for mobile
+  const touchState = useRef<{ startX: number; startY: number }>({
+    startX: 0, startY: 0,
+  });
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchState.current = { startX: touch.clientX, startY: touch.clientY };
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchState.current.startX;
+    const dy = touch.clientY - touchState.current.startY;
+    if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      // Swipe gesture detected
+    }
+    touchState.current = { startX: 0, startY: 0 };
+  }, []);
+
   // Context menu handler for event rows
   const handleContextMenu = useCallback((e: React.MouseEvent, event: FlowEvent) => {
     e.preventDefault();
@@ -475,6 +566,7 @@ export function AgentFlow({
     setShowBookmarkedOnly(false);
     setGroupByAgent(false);
     setCollapsedAgentGroups(new Set());
+    setAgentOrder([]);
   }, [clearEvents]);
 
   // Cleanup highlight timer on unmount
@@ -923,15 +1015,31 @@ export function AgentFlow({
                   >
                     All Agents
                   </button>
-                  {stats.agents.map((agent: string) => {
+                  {orderedAgents.map((agent: string) => {
                     const info = agentInfoMap.get(agent);
                     return (
-                      <button
+                      <div
                         key={agent}
-                        className={`agent-flow__agent-filter-option${selectedAgent === agent ? ' agent-flow__agent-filter-option--active' : ''}`}
+                        className={`agent-flow__agent-filter-option${selectedAgent === agent ? ' agent-flow__agent-filter-option--active' : ''}${dragOverAgent === agent ? ' agent-flow__agent-filter-option--drag-over' : ''}`}
+                        draggable
+                        onDragStart={(e) => handleDragStart(agent, e)}
+                        onDragOver={(e) => handleDragOver(agent, e)}
+                        onDrop={(e) => handleDrop(agent, e)}
+                        onDragEnd={handleDragEnd}
                         onClick={() => { setSelectedAgent(agent); setAgentFilterOpen(false); }}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                       >
+                        <span className="agent-flow__drag-handle" title="Drag to reorder">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="8" cy="4" r="2" />
+                            <circle cx="16" cy="4" r="2" />
+                            <circle cx="8" cy="12" r="2" />
+                            <circle cx="16" cy="12" r="2" />
+                            <circle cx="8" cy="20" r="2" />
+                            <circle cx="16" cy="20" r="2" />
+                          </svg>
+                        </span>
                         <AgentAvatar
                           avatar={info?.avatar}
                           name={agent}
@@ -939,7 +1047,7 @@ export function AgentFlow({
                           size={16}
                         />
                         {agent}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -1214,6 +1322,8 @@ export function AgentFlow({
                     data-index={virtualRow.index}
                     ref={rowRef}
                     onContextMenu={(e) => handleContextMenu(e, event)}
+                    onTouchStart={handleTouchStart}
+                    onTouchEnd={handleTouchEnd}
                   >
                     {visible ? (
                       <MemoizedEventRow
