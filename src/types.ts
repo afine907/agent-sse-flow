@@ -2,7 +2,7 @@ import type React from 'react';
 
 export type EventStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
-export type ViewMode = 'list' | 'timeline';
+export type ViewMode = 'list' | 'timeline' | 'waterfall';
 
 export type Theme = 'light' | 'dark';
 
