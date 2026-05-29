@@ -3,7 +3,7 @@ import type { Locale } from './i18n';
 
 export type EventStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
-export type ViewMode = 'list' | 'timeline' | 'waterfall';
+export type ViewMode = 'list' | 'timeline' | 'waterfall' | 'dag' | 'swimlane';
 
 export type Theme = 'light' | 'dark';
 
