@@ -910,6 +910,12 @@
   background: transparent;
 }
 
+.agent-flow__header-btn--active {
+  color: var(--af-accent);
+  border-color: var(--af-accent);
+  background: var(--af-accent-muted);
+}
+
 .agent-flow__search-bar {
   display: flex;
   align-items: center;
@@ -1131,6 +1137,56 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/* =============================================
+   Statistics Panel
+   ============================================= */
+
+.agent-flow__stats {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--af-border);
+  background: var(--af-bg-raised);
+  flex-shrink: 0;
+}
+
+.agent-flow__stats-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.agent-flow__stats-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.agent-flow__stats-label {
+  font-size: 11px;
+  color: var(--af-text-tertiary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.agent-flow__stats-value {
+  font-size: 12px;
+  color: var(--af-text);
+  font-family: var(--af-mono);
+  font-weight: 500;
+}
+
+.agent-flow__stats-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.02em;
 }
 
 /* =============================================
