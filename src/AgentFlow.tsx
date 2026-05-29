@@ -19,6 +19,7 @@ interface GroupHeaderItem {
   kind: 'header';
   agentName: string;
   agentColor: string | undefined;
+  agentAvatar: string | undefined;
   count: number;
   key: string;
 }
@@ -31,7 +32,7 @@ interface EventItem {
 
 type VirtualListItem = GroupHeaderItem | EventItem;
 import { useSSE } from './useSSE';
-import { EventRow, TimelineRow } from './EventRow';
+import { EventRow, TimelineRow, AgentAvatar } from './EventRow';
 import { exportToJSON, exportToCSV, copyToClipboard, EVENT_DOT_COLORS } from './utils';
 
 // Note: AgentFlowProps, EventRow, TimelineRow, useSSE are exported from index.ts
@@ -142,6 +143,7 @@ export function AgentFlow({
   maxReconnectAttempts = 10,
   className,
   style,
+  customTheme,
 }: AgentFlowProps) {
   const {
     filteredEvents,
@@ -178,11 +180,19 @@ export function AgentFlow({
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
   const [groupByAgent, setGroupByAgent] = useState(false);
   const [collapsedAgentGroups, setCollapsedAgentGroups] = useState<Set<string>>(new Set());
+  // Merge customTheme CSS variable overrides with the user-supplied style prop
+  const mergedStyle = useMemo(
+    () => (customTheme ? { ...style, ...customTheme } : style),
+    [style, customTheme],
+  );
+
   const parentRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [agentFilterOpen, setAgentFilterOpen] = useState(false);
+  const agentFilterRef = useRef<HTMLDivElement>(null);
 
   // Search filter
   const searchFilteredEvents = useMemo(() => {
@@ -222,6 +232,17 @@ export function AgentFlow({
       counts[e.type]++;
     }
     return counts;
+  }, [filteredEvents]);
+
+  // Map of agent name -> { avatar, color } for the filter dropdown
+  const agentInfoMap = useMemo(() => {
+    const map = new Map<string, { avatar?: string; color?: string }>();
+    for (const e of filteredEvents) {
+      if (e.agentName && !map.has(e.agentName)) {
+        map.set(e.agentName, { avatar: e.agentAvatar, color: e.agentColor });
+      }
+    }
+    return map;
   }, [filteredEvents]);
 
   // Toggle event type filter
@@ -285,7 +306,8 @@ export function AgentFlow({
     for (const name of groupOrder) {
       const events = groups.get(name)!;
       const agentColor = events[0]?.agentColor;
-      items.push({ kind: 'header', agentName: name, agentColor, count: events.length, key: `group-${name}` });
+      const agentAvatar = events[0]?.agentAvatar;
+      items.push({ kind: 'header', agentName: name, agentColor, agentAvatar, count: events.length, key: `group-${name}` });
       if (!collapsedAgentGroups.has(name)) {
         for (const e of events) {
           items.push({ kind: 'event', event: e, key: e.id });
@@ -351,6 +373,18 @@ export function AgentFlow({
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, [showStatusDetails]);
+
+  // Close agent filter dropdown on outside click
+  useEffect(() => {
+    if (!agentFilterOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (agentFilterRef.current && !agentFilterRef.current.contains(e.target as Node)) {
+        setAgentFilterOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [agentFilterOpen]);
 
   const toggleCollapse = useCallback((id: number) => {
     setCollapsedIds(prev => {
@@ -526,7 +560,7 @@ export function AgentFlow({
   // SSR fallback
   if (!isSupported) {
     return (
-      <div className={`agent-flow agent-flow--${theme} agent-flow--unsupported${className ? ` ${className}` : ''}`} style={style}>
+      <div className={`agent-flow agent-flow--${theme} agent-flow--unsupported${className ? ` ${className}` : ''}`} style={mergedStyle}>
         <div className="agent-flow__header">
           <div className="agent-flow__header-left">
             <span className="agent-flow__status">
@@ -549,7 +583,7 @@ export function AgentFlow({
   return (
     <div
       className={`agent-flow agent-flow--${theme}${viewMode === 'timeline' ? ' agent-flow--timeline' : ''}${className ? ` ${className}` : ''}`}
-      style={style}
+      style={mergedStyle}
     >
       {/* Header */}
       <div className="agent-flow__header">
@@ -761,16 +795,60 @@ export function AgentFlow({
           </button>
 
           {stats.agents.length > 0 && (
-            <select
-              className="agent-flow__agent-filter"
-              value={selectedAgent || ''}
-              onChange={(e) => setSelectedAgent(e.target.value || null)}
-            >
-              <option value="">All Agents</option>
-              {stats.agents.map((agent: string) => (
-                <option key={agent} value={agent}>{agent}</option>
-              ))}
-            </select>
+            <div className="agent-flow__agent-filter" ref={agentFilterRef}>
+              <button
+                className={`agent-flow__agent-filter-toggle${agentFilterOpen ? ' agent-flow__agent-filter-toggle--active' : ''}`}
+                onClick={() => setAgentFilterOpen(prev => !prev)}
+                type="button"
+              >
+                {selectedAgent ? (
+                  <span className="agent-flow__agent-filter-selected">
+                    <AgentAvatar
+                      avatar={agentInfoMap.get(selectedAgent)?.avatar}
+                      name={selectedAgent}
+                      color={agentInfoMap.get(selectedAgent)?.color}
+                      size={14}
+                    />
+                    {selectedAgent}
+                  </span>
+                ) : (
+                  'All Agents'
+                )}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+              {agentFilterOpen && (
+                <div className="agent-flow__agent-filter-dropdown">
+                  <button
+                    className={`agent-flow__agent-filter-option${!selectedAgent ? ' agent-flow__agent-filter-option--active' : ''}`}
+                    onClick={() => { setSelectedAgent(null); setAgentFilterOpen(false); }}
+                    type="button"
+                  >
+                    All Agents
+                  </button>
+                  {stats.agents.map((agent: string) => {
+                    const info = agentInfoMap.get(agent);
+                    return (
+                      <button
+                        key={agent}
+                        className={`agent-flow__agent-filter-option${selectedAgent === agent ? ' agent-flow__agent-filter-option--active' : ''}`}
+                        onClick={() => { setSelectedAgent(agent); setAgentFilterOpen(false); }}
+                        type="button"
+                      >
+                        <AgentAvatar
+                          avatar={info?.avatar}
+                          name={agent}
+                          color={info?.color}
+                          size={16}
+                        />
+                        {agent}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Group by agent toggle (only shown when multiple agents exist and in list view) */}
@@ -956,9 +1034,11 @@ export function AgentFlow({
                         onClick={() => toggleAgentGroup(item.agentName)}
                         type="button"
                       >
-                        <span
-                          className="agent-flow__group-dot"
-                          style={{ background: item.agentColor || 'var(--af-accent)' }}
+                        <AgentAvatar
+                          avatar={item.agentAvatar}
+                          name={item.agentName}
+                          color={item.agentColor}
+                          size={20}
                         />
                         <span className="agent-flow__group-name">{item.agentName}</span>
                         <span className="agent-flow__group-count">{item.count}</span>

@@ -1930,3 +1930,118 @@
 .agent-flow__show-more:hover {
   opacity: 0.8;
 }
+
+/* =============================================
+   Agent Avatar
+   ============================================= */
+
+.agent-flow__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+  vertical-align: middle;
+}
+
+.agent-flow__avatar--letter {
+  color: #fff;
+  font-weight: 600;
+  font-family: var(--af-font);
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.agent-flow__avatar--text {
+  background: transparent;
+  user-select: none;
+}
+
+/* Agent badge wrapper (avatar + name side by side) */
+.agent-flow__agent-badge-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* =============================================
+   Agent Filter Custom Dropdown
+   ============================================= */
+
+.agent-flow__agent-filter {
+  position: relative;
+}
+
+.agent-flow__agent-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--af-font);
+  background: transparent;
+  color: var(--af-text-secondary);
+  transition: border-color 0.15s;
+}
+
+.agent-flow__agent-filter-toggle:hover {
+  border-color: var(--af-accent);
+  color: var(--af-text);
+}
+
+.agent-flow__agent-filter-toggle--active {
+  border-color: var(--af-accent);
+  background: var(--af-accent-muted);
+  color: var(--af-accent);
+}
+
+.agent-flow__agent-filter-selected {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.agent-flow__agent-filter-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 160px;
+  padding: 4px;
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius-sm);
+  background: var(--af-bg-raised);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 30;
+  animation: status-dropdown-in 0.12s ease;
+  backface-visibility: hidden;
+}
+
+.agent-flow__agent-filter-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--af-font);
+  text-align: left;
+  color: var(--af-text);
+  background: transparent;
+  transition: background 0.12s;
+}
+
+.agent-flow__agent-filter-option:hover {
+  background: var(--af-bg-hover);
+}
+
+.agent-flow__agent-filter-option--active {
+  color: var(--af-accent);
+  background: var(--af-accent-muted);
+}

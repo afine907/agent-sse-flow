@@ -90,6 +90,59 @@ const CopyButton = memo(function CopyButton({ text, title = 'Copy' }: { text: st
 });
 CopyButton.displayName = 'CopyButton';
 
+/** Agent avatar: image URL, emoji/text, or default first-letter circle */
+export const AgentAvatar = memo(function AgentAvatar({
+  avatar,
+  name,
+  color,
+  size = 18,
+}: {
+  avatar?: string;
+  name: string;
+  color?: string;
+  size?: number;
+}) {
+  if (avatar) {
+    // URL-based avatar
+    if (avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('data:')) {
+      return (
+        <img
+          className="agent-flow__avatar"
+          src={avatar}
+          alt={name}
+          style={{ width: size, height: size }}
+        />
+      );
+    }
+    // Emoji or short text avatar
+    return (
+      <span
+        className="agent-flow__avatar agent-flow__avatar--text"
+        style={{ width: size, height: size, fontSize: size * 0.6, lineHeight: `${size}px` }}
+      >
+        {avatar}
+      </span>
+    );
+  }
+  // Default: first letter of name in a colored circle
+  const letter = name.charAt(0).toUpperCase();
+  return (
+    <span
+      className="agent-flow__avatar agent-flow__avatar--letter"
+      style={{
+        width: size,
+        height: size,
+        fontSize: size * 0.55,
+        lineHeight: `${size}px`,
+        background: color || 'var(--af-accent)',
+      }}
+    >
+      {letter}
+    </span>
+  );
+});
+AgentAvatar.displayName = 'AgentAvatar';
+
 /** Event icon with memoization */
 const EventIcon = memo(function EventIcon({ type }: { type: EventType }) {
   return (
@@ -172,11 +225,19 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
           )}
           <span className="agent-flow__event-type">{event.type}</span>
           {event.agentName && (
-            <span
-              className="agent-flow__agent-badge"
-              style={event.agentColor ? { background: event.agentColor } : undefined}
-            >
-              {event.agentName}
+            <span className="agent-flow__agent-badge-wrapper">
+              <AgentAvatar
+                avatar={event.agentAvatar}
+                name={event.agentName}
+                color={event.agentColor}
+                size={16}
+              />
+              <span
+                className="agent-flow__agent-badge"
+                style={event.agentColor ? { background: event.agentColor } : undefined}
+              >
+                {event.agentName}
+              </span>
             </span>
           )}
           {event.duration !== undefined && (
