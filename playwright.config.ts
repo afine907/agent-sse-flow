@@ -8,6 +8,12 @@ export default defineConfig({
     headless: true,
     viewport: { width: 1280, height: 720 },
   },
+  expect: {
+    toHaveScreenshot: {
+      maxDiffPixelRatio: 0.01,
+      threshold: 0.2,
+    },
+  },
   webServer: [
     {
       command: 'node src/mock-server/index.mjs',

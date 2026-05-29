@@ -13,6 +13,7 @@ import './AgentFlow.css';
 
 import type { AgentFlowProps, FlowEvent, EventType, ViewMode } from './types';
 import { useVisibleRows } from './useVisibleRows';
+import { createT } from './i18n';
 
 /** A virtual list item: either a group header or an event */
 interface GroupHeaderItem {
@@ -144,7 +145,9 @@ export function AgentFlow({
   className,
   style,
   customTheme,
+  locale = 'en',
 }: AgentFlowProps) {
+  const t = useMemo(() => createT(locale), [locale]);
   const {
     filteredEvents,
     status,
@@ -731,15 +734,13 @@ export function AgentFlow({
           <div className="agent-flow__header-left">
             <span className="agent-flow__status">
               <span className="agent-flow__status-dot agent-flow__status-dot--error" />
-              unsupported
+              {t('status.unsupported')}
             </span>
           </div>
         </div>
         <div className="agent-flow__events-wrapper">
           <div className="agent-flow__empty">
-            EventSource is not supported in this environment.
-            <br />
-            Please use a browser that supports Server-Sent Events.
+            {t('empty.unsupported')}
           </div>
         </div>
       </div>
@@ -767,7 +768,7 @@ export function AgentFlow({
             <button
               className={`agent-flow__status agent-flow__status--clickable${showStatusDetails ? ' agent-flow__status--active' : ''}`}
               onClick={() => setShowStatusDetails(prev => !prev)}
-              title="Connection details"
+              title={t('header.connectionDetails')}
               type="button"
               aria-label={`Connection status: ${status}`}
               aria-expanded={showStatusDetails}
@@ -809,12 +810,12 @@ export function AgentFlow({
               </div>
             )}
           </div>
-          <span className="agent-flow__event-count" aria-live="polite" aria-label="Event count">
-            {hasActiveFilters ? `${bookmarkFilteredEvents.length}/${filteredEvents.length}` : filteredEvents.length} events
+          <span className="agent-flow__event-count" aria-live="polite" aria-label={t('header.eventCount')}>
+            {hasActiveFilters ? `${bookmarkFilteredEvents.length}/${filteredEvents.length}` : filteredEvents.length} {t('header.events')}
           </span>
           {bookmarkedIds.size > 0 && (
             <span className="agent-flow__bookmark-count">
-              {bookmarkedIds.size} bookmarked
+              {bookmarkedIds.size} {t('header.bookmarked')}
             </span>
           )}
           {stats.totalCost > 0 && (
@@ -845,9 +846,9 @@ export function AgentFlow({
           <button
             className={`agent-flow__header-btn${showStats ? ' agent-flow__header-btn--active' : ''}`}
             onClick={() => setShowStats(prev => !prev)}
-            title="Toggle event statistics"
+            title={t('header.toggleStats')}
             type="button"
-            aria-label="Toggle event statistics"
+            aria-label={t('header.toggleStats')}
             aria-pressed={showStats}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -861,9 +862,9 @@ export function AgentFlow({
           <button
             className={`agent-flow__header-btn${compact ? ' agent-flow__header-btn--active' : ''}`}
             onClick={() => setCompact(prev => !prev)}
-            title={compact ? 'Switch to normal view' : 'Switch to compact view'}
+            title={compact ? t('header.normalView') : t('header.compactView')}
             type="button"
-            aria-label={compact ? 'Switch to normal view' : 'Switch to compact view'}
+            aria-label={compact ? t('header.normalView') : t('header.compactView')}
             aria-pressed={compact}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -878,10 +879,10 @@ export function AgentFlow({
           <button
             className="agent-flow__header-btn"
             onClick={handleClear}
-            title="Clear all events"
+            title={t('header.clearAll')}
             type="button"
             disabled={filteredEvents.length === 0}
-            aria-label="Clear all events"
+            aria-label={t('header.clearAll')}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="3 6 5 6 21 6" />
@@ -896,9 +897,9 @@ export function AgentFlow({
             <button
               className={`agent-flow__export-toggle${exportOpen ? ' agent-flow__export-toggle--active' : ''}`}
               onClick={() => setExportOpen(prev => !prev)}
-              title="Export events"
+              title={t('header.export')}
               type="button"
-              aria-label="Export events"
+              aria-label={t('header.export')}
               aria-expanded={exportOpen}
               aria-haspopup="menu"
             >
@@ -915,18 +916,18 @@ export function AgentFlow({
                   onClick={() => { exportToJSON(typeFilteredEvents); setExportOpen(false); }}
                   type="button"
                   role="menuitem"
-                  aria-label="Export events as JSON"
+                  aria-label={t('export.asJSON')}
                 >
-                  Export as JSON
+                  {t('export.asJSON')}
                 </button>
                 <button
                   className="agent-flow__export-option"
                   onClick={() => { exportToCSV(typeFilteredEvents); setExportOpen(false); }}
                   type="button"
                   role="menuitem"
-                  aria-label="Export events as CSV"
+                  aria-label={t('export.asCSV')}
                 >
-                  Export as CSV
+                  {t('export.asCSV')}
                 </button>
               </div>
             )}
@@ -936,9 +937,9 @@ export function AgentFlow({
           <button
             className={`agent-flow__header-btn${showHelp ? ' agent-flow__header-btn--active' : ''}`}
             onClick={() => setShowHelp(prev => !prev)}
-            title="Keyboard shortcuts (?)"
+            title={t('header.keyboardShortcuts') + ' (?)'}
             type="button"
-            aria-label="Keyboard shortcuts"
+            aria-label={t('header.keyboardShortcuts')}
             aria-pressed={showHelp}
           >
             ?
@@ -967,9 +968,9 @@ export function AgentFlow({
               setSearchOpen(prev => !prev);
               if (searchOpen) setSearchQuery('');
             }}
-            title="Search events (Ctrl+K)"
+            title={t('header.searchEvents') + ' (Ctrl+K)'}
             type="button"
-            aria-label="Search events"
+            aria-label={t('header.searchEvents')}
             aria-pressed={searchOpen}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -982,9 +983,9 @@ export function AgentFlow({
           <button
             className={`agent-flow__search-toggle${timeFilterOpen || timeFrom || timeTo ? ' agent-flow__search-toggle--active' : ''}`}
             onClick={() => setTimeFilterOpen(prev => !prev)}
-            title="Filter by time range"
+            title={t('header.filterByTime')}
             type="button"
-            aria-label="Filter by time range"
+            aria-label={t('header.filterByTime')}
             aria-pressed={timeFilterOpen || !!timeFrom || !!timeTo}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -997,9 +998,9 @@ export function AgentFlow({
           <button
             className={`agent-flow__header-btn${relativeTime ? ' agent-flow__header-btn--active' : ''}`}
             onClick={() => setRelativeTime(prev => !prev)}
-            title={relativeTime ? 'Showing relative time' : 'Showing absolute time'}
+            title={relativeTime ? t('header.relativeTime') : t('header.absoluteTime')}
             type="button"
-            aria-label={relativeTime ? 'Showing relative time' : 'Showing absolute time'}
+            aria-label={relativeTime ? t('header.relativeTime') : t('header.absoluteTime')}
             aria-pressed={relativeTime}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1015,7 +1016,7 @@ export function AgentFlow({
                 className={`agent-flow__agent-filter-toggle${agentFilterOpen ? ' agent-flow__agent-filter-toggle--active' : ''}`}
                 onClick={() => setAgentFilterOpen(prev => !prev)}
                 type="button"
-                aria-label={selectedAgent ? `Filter by agent: ${selectedAgent}` : 'All Agents'}
+                aria-label={selectedAgent ? `${t('action.filterByAgent')}: ${selectedAgent}` : t('header.allAgents')}
                 aria-expanded={agentFilterOpen}
                 aria-haspopup="listbox"
               >
@@ -1090,9 +1091,9 @@ export function AgentFlow({
             <button
               className={`agent-flow__header-btn${groupByAgent ? ' agent-flow__header-btn--active' : ''}`}
               onClick={() => setGroupByAgent(prev => !prev)}
-              title={groupByAgent ? 'Show flat list' : 'Group by agent'}
+              title={groupByAgent ? t('header.flatList') : t('header.groupByAgent')}
               type="button"
-              aria-label={groupByAgent ? 'Show flat list' : 'Group by agent'}
+              aria-label={groupByAgent ? t('header.flatList') : t('header.groupByAgent')}
               aria-pressed={groupByAgent}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1105,13 +1106,13 @@ export function AgentFlow({
           )}
 
           {status === 'connected' && (
-            <button className="agent-flow__connect-btn" onClick={disconnect} type="button" aria-label="Disconnect from event stream">
-              Disconnect
+            <button className="agent-flow__connect-btn" onClick={disconnect} type="button" aria-label={t('header.disconnect')}>
+              {t('header.disconnect')}
             </button>
           )}
           {status === 'disconnected' && (
-            <button className="agent-flow__connect-btn" onClick={connect} type="button" aria-label="Connect to event stream">
-              Connect
+            <button className="agent-flow__connect-btn" onClick={connect} type="button" aria-label={t('header.connect')}>
+              {t('header.connect')}
             </button>
           )}
         </div>
@@ -1128,21 +1129,21 @@ export function AgentFlow({
             ref={searchInputRef}
             type="text"
             className="agent-flow__search-input"
-            placeholder="Search events..."
+            placeholder={t('search.placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            aria-label="Search events"
+            aria-label={t('header.searchEvents')}
           />
           {searchQuery && (
             <span className="agent-flow__search-count" aria-live="polite">
-              {typeFilteredEvents.length} matches
+              {typeFilteredEvents.length} {t('search.matches')}
             </span>
           )}
           <button
             className="agent-flow__search-close"
             onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
             type="button"
-            aria-label="Close search"
+            aria-label={t('search.closeSearch')}
           >
             ✕
           </button>
@@ -1152,32 +1153,32 @@ export function AgentFlow({
       {/* Time range filter bar */}
       {(timeFilterOpen || timeFrom || timeTo) && (
         <div className="agent-flow__time-filter" role="group" aria-label="Time range filter">
-          <span className="agent-flow__time-filter-label">Time range:</span>
+          <span className="agent-flow__time-filter-label">{t('timeFilter.label')}</span>
           <input
             type="datetime-local"
             className="agent-flow__time-input"
             value={timeFrom}
             onChange={(e) => setTimeFrom(e.target.value)}
-            placeholder="From"
-            aria-label="Start time"
+            placeholder={t('timeFilter.from')}
+            aria-label={t('timeFilter.from')}
           />
-          <span className="agent-flow__time-filter-sep">to</span>
+          <span className="agent-flow__time-filter-sep">{t('generic.to')}</span>
           <input
             type="datetime-local"
             className="agent-flow__time-input"
             value={timeTo}
             onChange={(e) => setTimeTo(e.target.value)}
-            placeholder="To"
-            aria-label="End time"
+            placeholder={t('timeFilter.to')}
+            aria-label={t('timeFilter.to')}
           />
           <button
             className="agent-flow__time-filter-clear"
             onClick={() => { setTimeFrom(''); setTimeTo(''); }}
-            title="Clear time filter"
+            title={t('timeFilter.clear')}
             type="button"
-            aria-label="Clear time filter"
+            aria-label={t('timeFilter.clear')}
           >
-            Clear
+            {t('timeFilter.clear')}
           </button>
         </div>
       )}
@@ -1245,7 +1246,7 @@ export function AgentFlow({
           {viewMode === 'waterfall' ? (
             bookmarkFilteredEvents.length === 0 ? (
               <div className="agent-flow__empty">
-                {hasActiveFilters ? 'No matching events' : 'No events yet. Waiting for agent...'}
+                {hasActiveFilters ? t('empty.noMatching') : t('empty.noEvents')}
               </div>
             ) : (
               <div className="agent-flow__waterfall">
@@ -1291,7 +1292,7 @@ export function AgentFlow({
             )
           ) : virtualListItems.length === 0 ? (
             <div className="agent-flow__empty">
-              {hasActiveFilters ? 'No matching events' : 'No events yet. Waiting for agent...'}
+              {hasActiveFilters ? t('empty.noMatching') : t('empty.noEvents')}
             </div>
           ) : (
             <div
