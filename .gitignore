@@ -10,7 +10,8 @@ yarn.lock
 # Build output
 dist/
 build/
-docs/
+docs/assets/
+docs/index.html
 *.tgz
 
 # Testing
