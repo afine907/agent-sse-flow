@@ -16,6 +16,10 @@ export { useSSE } from './useSSE';
 
 // Sub-components
 export { EventRow, TimelineRow, AgentAvatar, WaterfallBar, SyntaxHighlight } from './EventRow';
+export { DAGView } from './DAGView';
+export { SwimlaneView } from './SwimlaneView';
+export { TokenChart } from './TokenChart';
+export { CostDashboard } from './CostDashboard';
 
 // i18n
 export type { Locale, TranslationKey } from './i18n';
@@ -46,3 +50,27 @@ export type { UsePollingOptions, UsePollingReturn } from './adapters/polling';
 // Validation
 export { validateFlowEvent, formatValidationErrors } from './validate';
 export type { ValidationError, ValidationResult } from './validate';
+
+// Snapshot store
+export { saveSnapshot, loadAllSnapshots, loadSnapshot, deleteSnapshot, clearAllSnapshots } from './snapshot-store';
+export type { EventSnapshot } from './snapshot-store';
+
+// Event diff
+export { diffEvents } from './event-diff';
+export type { DiffLine, DiffLineType } from './event-diff';
+
+// AI Analysis
+export { prepareEventsForAnalysis, buildAnalysisPrompt } from './ai-analysis';
+export type { AnalysisResult, AnalysisFinding, AnalysisOptions, AnalyzeCallback } from './ai-analysis';
+
+// Event clustering
+export { clusterEvents, getClusterColor } from './event-cluster';
+export type { EventCluster } from './event-cluster';
+
+// Performance analysis
+export { analyzePerformance } from './perf-analyze';
+export type { PerfFinding, PerfAnalysisOptions, PerfAnalysisResult, FindingSeverity } from './perf-analyze';
+
+// Recording
+export { createRecordingBuffer, downloadJSONL, parseJSONL } from './recording';
+export type { RecordingState, RecordingBuffer } from './recording';

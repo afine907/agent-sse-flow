@@ -3,7 +3,7 @@ import type { Locale } from './i18n';
 
 export type EventStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
-export type ViewMode = 'list' | 'timeline' | 'waterfall';
+export type ViewMode = 'list' | 'timeline' | 'waterfall' | 'dag' | 'swimlane';
 
 export type Theme = 'light' | 'dark';
 
@@ -50,6 +50,8 @@ export interface AgentFlowProps {
   locale?: Locale;
   /** Enable subtle sound feedback for events (default: false) */
   enableSounds?: boolean;
+  /** AI analysis callback */
+  onAnalyze?: (events: FlowEvent[], options?: { focus?: string; maxEvents?: number }) => Promise<{ summary: string; findings?: Array<{ category: string; severity: string; description: string }>; suggestions?: string[] }>;
 }
 
 export interface FlowEvent {
@@ -98,6 +100,15 @@ export interface ConnectionDetails {
   lastErrorMessage: string | null;
   /** Timestamp when the current connection was established (null if not connected) */
   connectedAt: number | null;
+}
+
+export type BreakpointConditionType = 'event_type' | 'tool_name';
+
+export interface Breakpoint {
+  id: string;
+  conditionType: BreakpointConditionType;
+  value: string;
+  enabled: boolean;
 }
 
 export interface UseSSEReturn {

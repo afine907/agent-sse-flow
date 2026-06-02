@@ -35,7 +35,11 @@ interface EventItem {
 type VirtualListItem = GroupHeaderItem | EventItem;
 import { useSSE } from './useSSE';
 import { EventRow, TimelineRow, AgentAvatar, WaterfallBar } from './EventRow';
+import { DAGView } from './DAGView';
+import { SwimlaneView } from './SwimlaneView';
 import { exportToJSON, exportToCSV, copyToClipboard, generateCurlCommand, EVENT_DOT_COLORS, formatTime } from './utils';
+import { analyzePerformance } from './perf-analyze';
+import { createRecordingBuffer, downloadJSONL } from './recording';
 
 // Note: AgentFlowProps, EventRow, TimelineRow, useSSE are exported from index.ts
 // This avoids duplicate re-exports that could interfere with tree-shaking
@@ -150,6 +154,14 @@ export function AgentFlow({
   enableSounds = false,
 }: AgentFlowProps) {
   const t = useMemo(() => createT(locale), [locale]);
+  // Recording: capture raw SSE data when active
+  const handleRawEvent = useCallback((rawData: string) => {
+    recordingBufferRef.current.push(rawData);
+    if (recordingBufferRef.current.isRecording) {
+      setRecordingCount(recordingBufferRef.current.count);
+    }
+  }, []);
+
   const {
     filteredEvents,
     status,
@@ -161,7 +173,7 @@ export function AgentFlow({
     clearEvents,
     isSupported,
     connectionDetails,
-  } = useSSE({ url, autoConnect, maxEvents, onError, onStatusChange, autoReconnect, maxReconnectAttempts });
+  } = useSSE({ url, autoConnect, maxEvents, onError, onStatusChange, autoReconnect, maxReconnectAttempts, onRawEvent: handleRawEvent });
 
   const [collapsedIds, setCollapsedIds] = useState<Set<number>>(new Set());
   const [expandedArgsIds, setExpandedArgsIds] = useState<Set<number>>(new Set());
@@ -189,6 +201,12 @@ export function AgentFlow({
   const [agentOrder, setAgentOrder] = useState<string[]>([]);
   const [dragOverAgent, setDragOverAgent] = useState<string | null>(null);
   const dragAgentRef = useRef<string | null>(null);
+  const [showTokenChart, setShowTokenChart] = useState(false);
+  const [showCostDashboard, setShowCostDashboard] = useState(false);
+  const [showPerf, setShowPerf] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingCount, setRecordingCount] = useState(0);
+  const recordingBufferRef = useRef(createRecordingBuffer());
   // Merge customTheme CSS variable overrides with the user-supplied style prop
   const mergedStyle = useMemo(
     () => (customTheme ? { ...style, ...customTheme } : style),
@@ -259,6 +277,12 @@ export function AgentFlow({
     return map;
   }, [filteredEvents]);
 
+  // Performance bottleneck analysis (memoized, re-runs when events change)
+  const perfResult = useMemo(
+    () => (showPerf ? analyzePerformance(filteredEvents) : null),
+    [filteredEvents, showPerf],
+  );
+
   // Toggle event type filter
   const toggleEventType = useCallback((type: EventType) => {
     setEnabledTypes(prev => {
@@ -277,6 +301,22 @@ export function AgentFlow({
       else next.add(id);
       return next;
     });
+  }, []);
+
+  // Recording controls
+  const startRecording = useCallback(() => {
+    recordingBufferRef.current.start();
+    setIsRecording(true);
+    setRecordingCount(0);
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    recordingBufferRef.current.stop();
+    setIsRecording(false);
+    const jsonl = recordingBufferRef.current.toJSONL();
+    if (jsonl.trim()) {
+      downloadJSONL(jsonl);
+    }
   }, []);
 
   // Bookmark filter (applied after type filter)
@@ -351,7 +391,7 @@ export function AgentFlow({
 
   // Build virtual list items (grouped or flat)
   const virtualListItems = useMemo((): VirtualListItem[] => {
-    if (!groupByAgent || viewMode === 'timeline' || viewMode === 'waterfall') {
+    if (!groupByAgent || viewMode === 'timeline' || viewMode === 'waterfall' || viewMode === 'dag' || viewMode === 'swimlane') {
       return bookmarkFilteredEvents.map(e => ({ kind: 'event' as const, event: e, key: e.id }));
     }
 
@@ -890,6 +930,55 @@ export function AgentFlow({
             </svg>
           </button>
 
+          {/* Token chart toggle */}
+          {(stats.totalTokens > 0 || stats.totalCost > 0) && (
+            <button
+              className={`agent-flow__header-btn${showTokenChart ? ' agent-flow__header-btn--active' : ''}`}
+              onClick={() => setShowTokenChart(prev => !prev)}
+              title="Toggle token usage chart"
+              type="button"
+              aria-label="Toggle token usage chart"
+              aria-pressed={showTokenChart}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+            </button>
+          )}
+
+          {/* Cost dashboard toggle */}
+          {stats.totalCost > 0 && (
+            <button
+              className={`agent-flow__header-btn${showCostDashboard ? ' agent-flow__header-btn--active' : ''}`}
+              onClick={() => setShowCostDashboard(prev => !prev)}
+              title="Toggle cost dashboard"
+              type="button"
+              aria-label="Toggle cost dashboard"
+              aria-pressed={showCostDashboard}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23" />
+                <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+              </svg>
+            </button>
+          )}
+
+          {/* Performance analysis toggle */}
+          {filteredEvents.length > 0 && (
+            <button
+              className={`agent-flow__header-btn${showPerf ? ' agent-flow__header-btn--active' : ''}`}
+              onClick={() => setShowPerf(prev => !prev)}
+              title="Toggle performance analysis"
+              type="button"
+              aria-label="Toggle performance analysis"
+              aria-pressed={showPerf}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
+            </button>
+          )}
+
           {/* Compact view toggle */}
           <button
             className={`agent-flow__header-btn${compact ? ' agent-flow__header-btn--active' : ''}`}
@@ -1137,6 +1226,34 @@ export function AgentFlow({
             </button>
           )}
 
+          {/* Recording controls */}
+          {isRecording ? (
+            <button
+              className="agent-flow__header-btn agent-flow__record-btn agent-flow__record-btn--active"
+              onClick={stopRecording}
+              title={`Stop recording (${recordingCount} events captured)`}
+              type="button"
+              aria-label={`Stop recording (${recordingCount} events captured)`}
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="4" y="4" width="16" height="16" rx="2" />
+              </svg>
+              {recordingCount > 0 && <span className="agent-flow__record-count">{recordingCount}</span>}
+            </button>
+          ) : (
+            <button
+              className="agent-flow__header-btn agent-flow__record-btn"
+              onClick={startRecording}
+              title="Record event stream to JSONL"
+              type="button"
+              aria-label="Record event stream"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="8" />
+              </svg>
+            </button>
+          )}
+
           {status === 'connected' && (
             <button className="agent-flow__connect-btn" onClick={disconnect} type="button" aria-label={t('header.disconnect')}>
               {t('header.disconnect')}
@@ -1272,10 +1389,40 @@ export function AgentFlow({
         </div>
       )}
 
+      {/* Performance analysis panel */}
+      {showPerf && perfResult && (
+        <div className="agent-flow__perf-panel" role="region" aria-label="Performance analysis">
+          <div className="agent-flow__perf-header">
+            <span className="agent-flow__perf-title">Performance Bottlenecks</span>
+            <span className="agent-flow__perf-count">{perfResult.findings.length} finding(s)</span>
+          </div>
+          {perfResult.findings.length === 0 ? (
+            <div className="agent-flow__perf-empty">No performance bottlenecks detected.</div>
+          ) : (
+            <div className="agent-flow__perf-findings">
+              {perfResult.findings.map((finding, i) => (
+                <div key={i} className={`agent-flow__perf-finding agent-flow__perf-finding--${finding.severity}`}>
+                  <span className="agent-flow__perf-severity">{finding.severity}</span>
+                  <span className="agent-flow__perf-category">{finding.category.replace(/_/g, ' ')}</span>
+                  <span className="agent-flow__perf-desc">{finding.description}</span>
+                  {finding.suggestion && (
+                    <span className="agent-flow__perf-suggestion">{finding.suggestion}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Events (virtualized) */}
       <div className="agent-flow__events-wrapper">
-        <div ref={parentRef} className={`agent-flow__events${viewMode === 'waterfall' ? ' agent-flow__events--waterfall' : ''}`} role="log" aria-label="Event stream" aria-live="polite">
-          {viewMode === 'waterfall' ? (
+        <div ref={parentRef} className={`agent-flow__events${viewMode === 'waterfall' ? ' agent-flow__events--waterfall' : ''}${viewMode === 'dag' ? ' agent-flow__events--dag' : ''}${viewMode === 'swimlane' ? ' agent-flow__events--swimlane' : ''}`} role="log" aria-label="Event stream" aria-live="polite">
+          {viewMode === 'dag' ? (
+            <DAGView events={bookmarkFilteredEvents} theme={theme} />
+          ) : viewMode === 'swimlane' ? (
+            <SwimlaneView events={bookmarkFilteredEvents} theme={theme} />
+          ) : viewMode === 'waterfall' ? (
             bookmarkFilteredEvents.length === 0 ? (
               <div className="agent-flow__empty">
                 {hasActiveFilters ? t('empty.noMatching') : t('empty.noEvents')}
@@ -1424,7 +1571,7 @@ export function AgentFlow({
             </div>
           )}
         </div>
-        {virtualListItems.length > 0 && viewMode !== 'waterfall' && (
+        {virtualListItems.length > 0 && viewMode !== 'waterfall' && viewMode !== 'dag' && viewMode !== 'swimlane' && (
           <div className="agent-flow__scroll-controls">
             <button
               className={`agent-flow__auto-scroll-btn${autoScroll ? ' agent-flow__auto-scroll-btn--active' : ''}`}
