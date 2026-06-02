@@ -1,7 +1,7 @@
 import { memo, useCallback, forwardRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { FlowEvent, EventType } from './types';
-import { formatTime, copyToClipboard, EVENT_DOT_COLORS, getSummary } from './utils';
+import { formatTime, formatRelativeTime, copyToClipboard, generateCurlCommand, EVENT_DOT_COLORS, getSummary } from './utils';
 
 /** SVG icon paths by event type (Lucide-style, 24x24 viewBox) */
 const ICON_PATHS: Record<EventType, string> = {
@@ -55,6 +55,16 @@ interface RowProps {
   renderResult?: (result: string) => React.ReactNode;
   showArgs?: boolean;
   onToggleArgs?: () => void;
+  /** Called when the event row is clicked to show detail modal */
+  onEventClick?: (event: FlowEvent) => void;
+  /** Whether this event is currently highlighted (e.g. after jump-to-error) */
+  highlighted?: boolean;
+  /** Whether to display relative time instead of absolute time */
+  relativeTime?: boolean;
+  /** Whether this event is bookmarked */
+  bookmarked?: boolean;
+  /** Called when the bookmark button is clicked */
+  onToggleBookmark?: () => void;
 }
 
 /** EventRow — list/card view */
@@ -65,16 +75,44 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
     renderResult,
     showArgs = true,
     onToggleArgs,
+    onEventClick,
+    highlighted,
+    relativeTime: useRelativeTime = false,
+    bookmarked = false,
+    onToggleBookmark,
   },
   ref,
 ) {
-  const time = event.timestamp ? formatTime(event.timestamp) : null;
+  const time = event.timestamp ? (useRelativeTime ? formatRelativeTime(event.timestamp) : formatTime(event.timestamp)) : null;
 
   return (
-    <div ref={ref} className={`agent-flow__event agent-flow__event--${event.type}`}>
+    <div
+      ref={ref}
+      className={`agent-flow__event agent-flow__event--${event.type} agent-flow__event--clickable${highlighted ? ' agent-flow__event--highlight' : ''}${bookmarked ? ' agent-flow__event--bookmarked' : ''}`}
+      onClick={() => onEventClick?.(event)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          onEventClick?.(event);
+        }
+      }}
+    >
       <EventIcon type={event.type} />
       <div className="agent-flow__event-content">
         <div className="agent-flow__event-header">
+          {onToggleBookmark && (
+            <button
+              className={`agent-flow__bookmark-btn${bookmarked ? ' agent-flow__bookmark-btn--active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
+              title={bookmarked ? 'Remove bookmark' : 'Bookmark event'}
+              type="button"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            </button>
+          )}
           <span className="agent-flow__event-type">{event.type}</span>
           {event.agentName && (
             <span
@@ -86,6 +124,14 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
           )}
           {event.duration !== undefined && (
             <span className="agent-flow__duration">{event.duration}ms</span>
+          )}
+          {(event.type === 'tool_call' || event.type === 'tool_result') && event.duration !== undefined && (
+            <span className="agent-flow__duration-bar">
+              <span
+                className="agent-flow__duration-bar-fill"
+                style={{ width: `${Math.min((event.duration / 5000) * 100, 100)}%` }}
+              />
+            </span>
           )}
           {time && <span className="agent-flow__event-time">{time}</span>}
         </div>
@@ -141,15 +187,20 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
     renderResult,
     showArgs = true,
     onToggleArgs,
+    onEventClick,
+    highlighted,
+    relativeTime: useRelativeTime = false,
+    bookmarked = false,
+    onToggleBookmark,
   },
   ref,
 ) {
-  const time = event.timestamp ? formatTime(event.timestamp) : null;
+  const time = event.timestamp ? (useRelativeTime ? formatRelativeTime(event.timestamp) : formatTime(event.timestamp)) : null;
 
   return (
     <div
       ref={ref}
-      className={`agent-flow__timeline-item agent-flow__timeline-item--${event.type}${collapsed ? ' agent-flow__timeline-item--collapsed' : ''}`}
+      className={`agent-flow__timeline-item agent-flow__timeline-item--${event.type}${collapsed ? ' agent-flow__timeline-item--collapsed' : ''}${highlighted ? ' agent-flow__event--highlight' : ''}${bookmarked ? ' agent-flow__event--bookmarked' : ''}`}
       onClick={onToggle}
       role="button"
       tabIndex={0}
@@ -170,7 +221,41 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
           <EventIcon type={event.type} />
           <span className="agent-flow__timeline-label">{event.type}</span>
           <span className="agent-flow__timeline-summary">{getSummary(event)}</span>
+          {(event.type === 'tool_call' || event.type === 'tool_result') && event.duration !== undefined && (
+            <span className="agent-flow__duration-bar">
+              <span
+                className="agent-flow__duration-bar-fill"
+                style={{ width: `${Math.min((event.duration / 5000) * 100, 100)}%` }}
+              />
+            </span>
+          )}
           {time && <span className="agent-flow__event-time">{time}</span>}
+          {onToggleBookmark && (
+            <button
+              className={`agent-flow__bookmark-btn${bookmarked ? ' agent-flow__bookmark-btn--active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onToggleBookmark(); }}
+              title={bookmarked ? 'Remove bookmark' : 'Bookmark event'}
+              type="button"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            </button>
+          )}
+          {onEventClick && (
+            <button
+              className="agent-flow__detail-btn"
+              onClick={(e) => { e.stopPropagation(); onEventClick(event); }}
+              title="View details"
+              type="button"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+            </button>
+          )}
           <span className={`agent-flow__timeline-chevron${collapsed ? '' : ' agent-flow__timeline-chevron--open'}`}>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 18l6-6-6-6" />
@@ -191,6 +276,16 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
                   {event.argsJson && onToggleArgs && (
                     <button className="agent-flow__tool-toggle" onClick={onToggleArgs} type="button">
                       {showArgs ? '▼' : '▶'} args
+                    </button>
+                  )}
+                  {event.type === 'tool_call' && (
+                    <button
+                      className="agent-flow__tool-toggle"
+                      onClick={(e) => { e.stopPropagation(); copyToClipboard(generateCurlCommand(event)); }}
+                      title="Copy as cURL"
+                      type="button"
+                    >
+                      curl
                     </button>
                   )}
                 </div>

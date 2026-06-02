@@ -112,6 +112,90 @@
   color: var(--af-text-secondary);
 }
 
+/* Status wrapper and clickable status */
+.agent-flow__status-wrapper {
+  position: relative;
+}
+
+.agent-flow__status--clickable {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--af-radius-sm);
+  font-family: var(--af-font);
+  transition: background 0.15s, color 0.15s;
+}
+
+.agent-flow__status--clickable:hover {
+  background: var(--af-bg-hover);
+  color: var(--af-text);
+}
+
+.agent-flow__status--active {
+  background: var(--af-accent-muted);
+  color: var(--af-accent);
+}
+
+/* Status details dropdown */
+.agent-flow__status-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 260px;
+  padding: 8px;
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius-sm);
+  background: var(--af-bg-raised);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 30;
+  animation: status-dropdown-in 0.12s ease;
+}
+
+@keyframes status-dropdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.agent-flow__status-detail-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 4px;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.agent-flow__status-detail-row + .agent-flow__status-detail-row {
+  border-top: 1px solid var(--af-border-subtle);
+}
+
+.agent-flow__status-detail-label {
+  flex-shrink: 0;
+  width: 80px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+  color: var(--af-text-tertiary);
+}
+
+.agent-flow__status-detail-value {
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+  color: var(--af-text-secondary);
+}
+
+.agent-flow__status-detail-value--mono {
+  font-family: var(--af-mono);
+  font-size: 11px;
+}
+
+.agent-flow__status-detail-value--error {
+  color: #ef4444;
+}
+
 .agent-flow__event-count {
   font-size: 11.5px;
   color: var(--af-text-tertiary);
@@ -236,7 +320,40 @@
 .agent-flow__event--tool_call { border-left: 2.5px solid #f59e0b; }
 .agent-flow__event--tool_result { border-left: 2.5px solid #10b981; }
 .agent-flow__event--message { border-left: 2.5px solid #06b6d4; }
-.agent-flow__event--error { border-left: 2.5px solid #ef4444; }
+.agent-flow__event--error {
+  border-left: 2.5px solid #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+  animation: error-pulse 2s ease-in-out infinite;
+}
+
+.agent-flow__event--error.agent-flow__event--highlight {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.3), 0 0 8px rgba(239, 68, 68, 0.15);
+  animation: error-highlight-flash 0.6s ease;
+}
+
+.agent-flow__timeline-item--error {
+  animation: error-pulse 2s ease-in-out infinite;
+}
+
+@keyframes error-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+  50% {
+    box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.25);
+  }
+}
+
+@keyframes error-highlight-flash {
+  0% {
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.6), 0 0 16px rgba(239, 68, 68, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
 .agent-flow__event--end { border-left: 2.5px solid #10b981; }
 
 /* Event Icon */
@@ -304,6 +421,40 @@
   color: var(--af-text-tertiary);
   font-family: var(--af-mono);
   font-weight: 400;
+}
+
+.agent-flow__duration-bar {
+  display: inline-flex;
+  align-items: center;
+  width: 48px;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.agent-flow--dark .agent-flow__duration-bar {
+  background: rgba(245, 158, 11, 0.15);
+}
+
+.agent-flow--light .agent-flow__duration-bar {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.agent-flow__duration-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  min-width: 2px;
+  transition: width 0.2s ease;
+}
+
+.agent-flow--dark .agent-flow__duration-bar-fill {
+  background: #f59e0b;
+}
+
+.agent-flow--light .agent-flow__duration-bar-fill {
+  background: #d97706;
 }
 
 .agent-flow__cost,
@@ -611,13 +762,48 @@
 }
 
 /* =============================================
-   Scroll to Bottom Button
+   Scroll Controls (auto-scroll + scroll-to-bottom)
    ============================================= */
 
-.agent-flow__scroll-bottom {
+.agent-flow__scroll-controls {
   position: absolute;
   bottom: 16px;
   right: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 10; /* Layer 10: scroll controls */
+}
+
+.agent-flow__auto-scroll-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--af-border);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+  background: var(--af-bg-raised);
+  color: var(--af-text-secondary);
+}
+
+.agent-flow__auto-scroll-btn:hover {
+  transform: scale(1.08);
+  background: var(--af-surface);
+  color: var(--af-text);
+}
+
+.agent-flow__auto-scroll-btn--active {
+  background: var(--af-accent-muted);
+  color: var(--af-accent);
+  border-color: var(--af-accent);
+}
+
+.agent-flow__scroll-bottom {
   width: 32px;
   height: 32px;
   border: 1px solid var(--af-border);
@@ -628,7 +814,6 @@
   justify-content: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   transition: transform 0.15s, opacity 0.15s, background 0.15s;
-  z-index: 10; /* Layer 10: scroll-to-bottom button */
   background: var(--af-bg-raised);
   color: var(--af-text-secondary);
 }
@@ -853,6 +1038,35 @@
    Search Bar
    ============================================= */
 
+/* Jump to Error Button */
+.agent-flow__jump-error-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #ef4444;
+  border-radius: var(--af-radius-sm);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--af-font);
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  transition: color 0.15s, background 0.15s, opacity 0.15s;
+}
+
+.agent-flow__jump-error-btn:hover {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+}
+
+.agent-flow__jump-error-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .agent-flow__search-toggle {
   display: flex;
   align-items: center;
@@ -874,6 +1088,43 @@
 }
 
 .agent-flow__search-toggle--active {
+  color: var(--af-accent);
+  border-color: var(--af-accent);
+  background: var(--af-accent-muted);
+}
+
+.agent-flow__header-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius-sm);
+  cursor: pointer;
+  color: var(--af-text-secondary);
+  background: transparent;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.agent-flow__header-btn:hover {
+  color: var(--af-text);
+  border-color: var(--af-text-tertiary);
+  background: var(--af-bg-hover);
+}
+
+.agent-flow__header-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.agent-flow__header-btn:disabled:hover {
+  color: var(--af-text-secondary);
+  border-color: var(--af-border);
+  background: transparent;
+}
+
+.agent-flow__header-btn--active {
   color: var(--af-accent);
   border-color: var(--af-accent);
   background: var(--af-accent-muted);
@@ -937,6 +1188,574 @@
 .agent-flow__search-close:hover {
   color: var(--af-text);
   background: var(--af-bg-hover);
+}
+
+/* =============================================
+   Export Dropdown
+   ============================================= */
+
+.agent-flow__export {
+  position: relative;
+}
+
+.agent-flow__export-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius-sm);
+  cursor: pointer;
+  color: var(--af-text-secondary);
+  background: transparent;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.agent-flow__export-toggle:hover {
+  color: var(--af-text);
+  border-color: var(--af-text-tertiary);
+  background: var(--af-bg-hover);
+}
+
+.agent-flow__export-toggle--active {
+  color: var(--af-accent);
+  border-color: var(--af-accent);
+  background: var(--af-accent-muted);
+}
+
+.agent-flow__export-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 140px;
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius-sm);
+  background: var(--af-bg-raised);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 30; /* Layer 30: dropdowns */
+  overflow: hidden;
+}
+
+.agent-flow__export-option {
+  display: block;
+  width: 100%;
+  padding: 7px 12px;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--af-font);
+  text-align: left;
+  color: var(--af-text);
+  background: transparent;
+  transition: background 0.12s;
+}
+
+.agent-flow__export-option:hover {
+  background: var(--af-bg-hover);
+}
+
+/* =============================================
+   Time Range Filter Bar
+   ============================================= */
+
+.agent-flow__time-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--af-border);
+  background: var(--af-bg-raised);
+  flex-shrink: 0;
+}
+
+.agent-flow__time-filter-label {
+  font-size: 11.5px;
+  color: var(--af-text-tertiary);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.agent-flow__time-input {
+  padding: 3px 8px;
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius-sm);
+  font-size: 12px;
+  font-family: var(--af-font);
+  color: var(--af-text);
+  background: transparent;
+  transition: border-color 0.15s;
+}
+
+.agent-flow__time-input:focus {
+  outline: none;
+  border-color: var(--af-accent);
+}
+
+.agent-flow__time-filter-sep {
+  font-size: 11px;
+  color: var(--af-text-tertiary);
+}
+
+.agent-flow__time-filter-clear {
+  padding: 3px 10px;
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius-sm);
+  cursor: pointer;
+  font-size: 11.5px;
+  font-family: var(--af-font);
+  color: var(--af-text-secondary);
+  background: transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.agent-flow__time-filter-clear:hover {
+  color: var(--af-text);
+  border-color: var(--af-text-tertiary);
+}
+
+/* =============================================
+   Event Type Filter Checkboxes
+   ============================================= */
+
+.agent-flow__type-filter {
+  display: flex;
+  align-items: center;
+  gap: 2px 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--af-border);
+  background: var(--af-bg-raised);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.agent-flow__type-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.agent-flow__type-checkbox input[type="checkbox"] {
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+  accent-color: var(--af-accent);
+  margin: 0;
+}
+
+.agent-flow__type-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* =============================================
+   Statistics Panel
+   ============================================= */
+
+.agent-flow__stats {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--af-border);
+  background: var(--af-bg-raised);
+  flex-shrink: 0;
+}
+
+.agent-flow__stats-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.agent-flow__stats-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.agent-flow__stats-label {
+  font-size: 11px;
+  color: var(--af-text-tertiary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.agent-flow__stats-value {
+  font-size: 12px;
+  color: var(--af-text);
+  font-family: var(--af-mono);
+  font-weight: 500;
+}
+
+.agent-flow__stats-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+/* =============================================
+   Agent Group Headers
+   ============================================= */
+
+.agent-flow__group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--af-radius-sm);
+  cursor: pointer;
+  font-family: var(--af-font);
+  font-size: 12px;
+  text-align: left;
+  transition: background 0.15s;
+  background: transparent;
+}
+
+.agent-flow__group-header:hover {
+  background: var(--af-bg-hover);
+}
+
+.agent-flow__group-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.agent-flow__group-name {
+  font-weight: 600;
+  color: var(--af-text);
+  flex: 1;
+  min-width: 0;
+}
+
+.agent-flow__group-count {
+  font-size: 11px;
+  color: var(--af-text-tertiary);
+  font-family: var(--af-mono);
+  font-weight: 400;
+  padding: 1px 6px;
+  background: var(--af-surface);
+  border-radius: 4px;
+}
+
+.agent-flow__group-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--af-text-tertiary);
+  transition: transform 0.15s ease, color 0.15s;
+}
+
+.agent-flow__group-chevron--open {
+  transform: rotate(90deg);
+}
+
+.agent-flow__group-header:hover .agent-flow__group-chevron {
+  color: var(--af-text-secondary);
+}
+
+/* =============================================
+   Bookmark Button
+   ============================================= */
+
+.agent-flow__bookmark-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--af-text-tertiary);
+  background: transparent;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.agent-flow__event:hover .agent-flow__bookmark-btn,
+.agent-flow__timeline-item:hover .agent-flow__bookmark-btn {
+  opacity: 0.7;
+}
+
+.agent-flow__bookmark-btn:hover {
+  opacity: 1 !important;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.agent-flow__bookmark-btn--active {
+  color: #f59e0b;
+  opacity: 0.8 !important;
+}
+
+.agent-flow__bookmark-btn--active:hover {
+  opacity: 1 !important;
+}
+
+/* Bookmarked event highlight */
+.agent-flow__event--bookmarked {
+  border-left: 2.5px solid #f59e0b !important;
+}
+
+.agent-flow--dark .agent-flow__event--bookmarked {
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.agent-flow--light .agent-flow__event--bookmarked {
+  background: rgba(245, 158, 11, 0.04);
+}
+
+.agent-flow__bookmark-count {
+  font-size: 11px;
+  color: #f59e0b;
+  font-family: var(--af-mono);
+  font-weight: 400;
+  padding: 1px 6px;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 4px;
+}
+
+/* =============================================
+   Clickable Event Row
+   ============================================= */
+
+.agent-flow__event--clickable {
+  cursor: pointer;
+}
+
+/* =============================================
+   Detail Button (timeline view)
+   ============================================= */
+
+.agent-flow__detail-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--af-text-tertiary);
+  background: transparent;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.agent-flow__timeline-item:hover .agent-flow__detail-btn {
+  opacity: 0.7;
+}
+
+.agent-flow__detail-btn:hover {
+  opacity: 1 !important;
+  color: var(--af-text);
+  background: var(--af-bg-hover);
+}
+
+/* =============================================
+   Event Detail Modal
+   ============================================= */
+
+.agent-flow__modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30; /* Layer 30: modals */
+  animation: modal-fade-in 0.15s ease;
+}
+
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.agent-flow__modal {
+  width: 90%;
+  max-width: 640px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--af-radius);
+  overflow: hidden;
+  animation: modal-scale-in 0.15s ease;
+}
+
+@keyframes modal-scale-in {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.agent-flow--dark .agent-flow__modal {
+  background: var(--af-bg-raised);
+  border: 1px solid var(--af-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.agent-flow--light .agent-flow__modal {
+  background: var(--af-bg);
+  border: 1px solid var(--af-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.agent-flow__modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--af-border);
+  flex-shrink: 0;
+}
+
+.agent-flow__modal-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--af-text);
+}
+
+.agent-flow__modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.agent-flow__modal-copy,
+.agent-flow__modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--af-text-secondary);
+  background: transparent;
+  transition: color 0.15s, background 0.15s;
+}
+
+.agent-flow__modal-copy:hover,
+.agent-flow__modal-close:hover {
+  color: var(--af-text);
+  background: var(--af-bg-hover);
+}
+
+.agent-flow__modal-content {
+  flex: 1;
+  overflow: auto;
+  margin: 0;
+  padding: 14px;
+  font-family: var(--af-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.agent-flow--dark .agent-flow__modal-content {
+  background: var(--af-bg);
+  color: #a5b4fc;
+}
+
+.agent-flow--light .agent-flow__modal-content {
+  background: var(--af-bg-raised);
+  color: #374151;
+}
+
+/* =============================================
+   Keyboard Shortcuts Help Modal
+   ============================================= */
+
+.agent-flow__help-modal {
+  width: 90%;
+  max-width: 400px;
+  border-radius: var(--af-radius);
+  overflow: hidden;
+  animation: modal-scale-in 0.15s ease;
+}
+
+.agent-flow--dark .agent-flow__help-modal {
+  background: var(--af-bg-raised);
+  border: 1px solid var(--af-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.agent-flow--light .agent-flow__help-modal {
+  background: var(--af-bg);
+  border: 1px solid var(--af-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.agent-flow__help-content {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agent-flow__help-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.agent-flow__help-keys {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--af-text-secondary);
+}
+
+.agent-flow__help-keys kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--af-mono);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.agent-flow--dark .agent-flow__help-keys kbd {
+  background: var(--af-surface);
+  border: 1px solid var(--af-border);
+  color: var(--af-text);
+}
+
+.agent-flow--light .agent-flow__help-keys kbd {
+  background: var(--af-bg-raised);
+  border: 1px solid var(--af-border);
+  color: var(--af-text);
+}
+
+.agent-flow__help-desc {
+  font-size: 12.5px;
+  color: var(--af-text-secondary);
 }
 
 /* =============================================

@@ -14,6 +14,7 @@ vi.mock('@tanstack/react-virtual', () => ({
         end: (i + 1) * 80,
       })),
     measureElement: () => {},
+    scrollToIndex: () => {},
   }),
 }))
 
@@ -439,8 +440,10 @@ describe('AgentFlow', () => {
       expect(onError).toHaveBeenCalled()
       expect(onStatusChange).toHaveBeenCalledWith('error')
 
-      // Error status should be visible in the UI
-      expect(screen.getByText('error')).toBeInTheDocument()
+      // Error status should be visible in the UI (status span, not the type filter label)
+      const errorTexts = screen.getAllByText('error')
+      const statusError = errorTexts.find(el => el.classList.contains('agent-flow__status'))
+      expect(statusError).toBeInTheDocument()
     })
 
     it('shows error status dot with error class', async () => {
@@ -555,8 +558,10 @@ describe('AgentFlow', () => {
       mockEventSource?.simulateError()
       await vi.advanceTimersByTimeAsync(50)
 
-      // After error, the component should show error status
-      expect(screen.getByText('error')).toBeInTheDocument()
+      // After error, the component should show error status (status span, not type filter label)
+      const errorTexts = screen.getAllByText('error')
+      const statusError = errorTexts.find(el => el.classList.contains('agent-flow__status'))
+      expect(statusError).toBeInTheDocument()
     })
 
     it('calls onError with meaningful error message', async () => {
@@ -624,6 +629,390 @@ describe('AgentFlow', () => {
       expect(screen.getByText('Event 0')).toBeInTheDocument()
       expect(screen.getByText('Event 9')).toBeInTheDocument()
       expect(screen.getByText(/10 events/)).toBeInTheDocument()
+    })
+  })
+
+  // ─── Phase 2 Feature Tests ───────────────────────────────────────────
+
+  describe('export button', () => {
+    it('shows export toggle button in the header', () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+      const exportBtn = container.querySelector('.agent-flow__export-toggle')
+      expect(exportBtn).toBeInTheDocument()
+    })
+
+    it('opens export dropdown on click', async () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+      const exportBtn = container.querySelector('.agent-flow__export-toggle') as HTMLButtonElement
+
+      fireEvent.click(exportBtn)
+      await vi.advanceTimersByTimeAsync(50)
+
+      expect(container.querySelector('.agent-flow__export-dropdown')).toBeInTheDocument()
+      expect(screen.getByText('Export as JSON')).toBeInTheDocument()
+      expect(screen.getByText('Export as CSV')).toBeInTheDocument()
+    })
+
+    it('closes export dropdown on second click', async () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+      const exportBtn = container.querySelector('.agent-flow__export-toggle') as HTMLButtonElement
+
+      fireEvent.click(exportBtn)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(container.querySelector('.agent-flow__export-dropdown')).toBeInTheDocument()
+
+      fireEvent.click(exportBtn)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(container.querySelector('.agent-flow__export-dropdown')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('type filter checkboxes', () => {
+    it('renders all event type checkboxes', () => {
+      render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+      const checkboxes = document.querySelectorAll('.agent-flow__type-checkbox')
+      expect(checkboxes.length).toBe(7) // start, thinking, tool_call, tool_result, message, error, end
+    })
+
+    it('all checkboxes are checked by default', () => {
+      render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+      const inputs = document.querySelectorAll('.agent-flow__type-checkbox input[type="checkbox"]') as NodeListOf<HTMLInputElement>
+      inputs.forEach(input => {
+        expect(input.checked).toBe(true)
+      })
+    })
+
+    it('unchecks a type filter when clicked', async () => {
+      render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+
+      // Find the "error" checkbox label
+      const labels = document.querySelectorAll('.agent-flow__type-checkbox')
+      const errorLabel = Array.from(labels).find(el => el.textContent?.includes('error'))
+      expect(errorLabel).toBeInTheDocument()
+
+      const checkbox = errorLabel!.querySelector('input[type="checkbox"]') as HTMLInputElement
+      expect(checkbox.checked).toBe(true)
+
+      fireEvent.click(checkbox)
+      await vi.advanceTimersByTimeAsync(50)
+
+      expect(checkbox.checked).toBe(false)
+    })
+
+    it('re-checks a type filter when clicked again', async () => {
+      render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+
+      const labels = document.querySelectorAll('.agent-flow__type-checkbox')
+      const errorLabel = Array.from(labels).find(el => el.textContent?.includes('error'))
+      const checkbox = errorLabel!.querySelector('input[type="checkbox"]') as HTMLInputElement
+
+      // Uncheck
+      fireEvent.click(checkbox)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(checkbox.checked).toBe(false)
+
+      // Re-check
+      fireEvent.click(checkbox)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(checkbox.checked).toBe(true)
+    })
+
+    it('filters events by type when checkbox is unchecked', async () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" />)
+
+      const eventsEl = container.querySelector('.agent-flow__events') as HTMLElement
+      if (eventsEl) {
+        Object.defineProperty(eventsEl, 'clientHeight', { value: 600, configurable: true })
+        Object.defineProperty(eventsEl, 'scrollHeight', { value: 600, configurable: true })
+      }
+
+      await vi.advanceTimersByTimeAsync(20)
+
+      // Add events of different types
+      mockEventSource?.simulateMessage({ type: 'start', message: 'Agent started' })
+      mockEventSource?.simulateMessage({ type: 'error', message: 'An error occurred' })
+      mockEventSource?.simulateMessage({ type: 'message', message: 'Hello world' })
+      await vi.advanceTimersByTimeAsync(50)
+
+      expect(screen.getByText('Agent started')).toBeInTheDocument()
+      expect(screen.getByText('An error occurred')).toBeInTheDocument()
+      expect(screen.getByText('Hello world')).toBeInTheDocument()
+
+      // Uncheck "start" type
+      const labels = document.querySelectorAll('.agent-flow__type-checkbox')
+      const startLabel = Array.from(labels).find(el => el.textContent?.includes('start'))
+      const checkbox = startLabel!.querySelector('input[type="checkbox"]') as HTMLInputElement
+      fireEvent.click(checkbox)
+      await vi.advanceTimersByTimeAsync(50)
+
+      // "Agent started" should be filtered out
+      expect(screen.queryByText('Agent started')).not.toBeInTheDocument()
+      expect(screen.getByText('An error occurred')).toBeInTheDocument()
+      expect(screen.getByText('Hello world')).toBeInTheDocument()
+    })
+  })
+
+  describe('clear button', () => {
+    it('shows clear button in the header', () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+      // The clear button has a trash icon SVG
+      const clearBtn = container.querySelector('.agent-flow__header-btn[title="Clear all events"]')
+      expect(clearBtn).toBeInTheDocument()
+    })
+
+    it('clear button is disabled when no events exist', () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+      const clearBtn = container.querySelector('.agent-flow__header-btn[title="Clear all events"]') as HTMLButtonElement
+      expect(clearBtn.disabled).toBe(true)
+    })
+
+    it('clear button removes all events when clicked', async () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" />)
+
+      const eventsEl = container.querySelector('.agent-flow__events') as HTMLElement
+      if (eventsEl) {
+        Object.defineProperty(eventsEl, 'clientHeight', { value: 600, configurable: true })
+        Object.defineProperty(eventsEl, 'scrollHeight', { value: 600, configurable: true })
+      }
+
+      await vi.advanceTimersByTimeAsync(20)
+
+      // Add events
+      mockEventSource?.simulateMessage({ type: 'start', message: 'Started' })
+      mockEventSource?.simulateMessage({ type: 'message', message: 'Processing' })
+      await vi.advanceTimersByTimeAsync(50)
+
+      expect(screen.getByText('Started')).toBeInTheDocument()
+      expect(screen.getByText(/2 events/)).toBeInTheDocument()
+
+      // Click clear
+      const clearBtn = container.querySelector('.agent-flow__header-btn[title="Clear all events"]') as HTMLButtonElement
+      fireEvent.click(clearBtn)
+      await vi.advanceTimersByTimeAsync(50)
+
+      // Events should be gone
+      expect(screen.queryByText('Started')).not.toBeInTheDocument()
+      expect(screen.getByText(/No events yet/)).toBeInTheDocument()
+    })
+  })
+
+  describe('stats panel', () => {
+    it('stats panel is hidden by default', () => {
+      render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+      expect(document.querySelector('.agent-flow__stats')).not.toBeInTheDocument()
+    })
+
+    it('toggles stats panel when stats button is clicked', async () => {
+      render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+
+      // Find the stats toggle button (bar chart icon, title="Toggle event statistics")
+      const statsBtn = document.querySelector('.agent-flow__header-btn[title="Toggle event statistics"]') as HTMLButtonElement
+      expect(statsBtn).toBeInTheDocument()
+
+      // Click to open
+      fireEvent.click(statsBtn)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(document.querySelector('.agent-flow__stats')).toBeInTheDocument()
+
+      // Click to close
+      fireEvent.click(statsBtn)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(document.querySelector('.agent-flow__stats')).not.toBeInTheDocument()
+    })
+
+    it('shows event type counts in stats panel', async () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" />)
+
+      const eventsEl = container.querySelector('.agent-flow__events') as HTMLElement
+      if (eventsEl) {
+        Object.defineProperty(eventsEl, 'clientHeight', { value: 600, configurable: true })
+        Object.defineProperty(eventsEl, 'scrollHeight', { value: 600, configurable: true })
+      }
+
+      await vi.advanceTimersByTimeAsync(20)
+
+      mockEventSource?.simulateMessage({ type: 'start', message: 'Start' })
+      mockEventSource?.simulateMessage({ type: 'message', message: 'Hello' })
+      mockEventSource?.simulateMessage({ type: 'message', message: 'World' })
+      await vi.advanceTimersByTimeAsync(50)
+
+      // Open stats panel
+      const statsBtn = document.querySelector('.agent-flow__header-btn[title="Toggle event statistics"]') as HTMLButtonElement
+      fireEvent.click(statsBtn)
+      await vi.advanceTimersByTimeAsync(50)
+
+      const statsPanel = document.querySelector('.agent-flow__stats')
+      expect(statsPanel).toBeInTheDocument()
+
+      // Should show badges for types with events
+      expect(statsPanel!.textContent).toContain('Total')
+      expect(statsPanel!.textContent).toContain('3')
+    })
+  })
+
+  describe('help panel', () => {
+    it('help panel is hidden by default', () => {
+      render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+      expect(document.querySelector('.agent-flow__help-modal')).not.toBeInTheDocument()
+    })
+
+    it('opens help panel on ? key press', async () => {
+      render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+
+      fireEvent.keyDown(window, { key: '?' })
+      await vi.advanceTimersByTimeAsync(50)
+
+      expect(document.querySelector('.agent-flow__help-modal')).toBeInTheDocument()
+      expect(screen.getByText('Keyboard Shortcuts')).toBeInTheDocument()
+    })
+
+    it('closes help panel on ? key press again', async () => {
+      render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+
+      // Open
+      fireEvent.keyDown(window, { key: '?' })
+      await vi.advanceTimersByTimeAsync(50)
+      expect(document.querySelector('.agent-flow__help-modal')).toBeInTheDocument()
+
+      // Close
+      fireEvent.keyDown(window, { key: '?' })
+      await vi.advanceTimersByTimeAsync(50)
+      expect(document.querySelector('.agent-flow__help-modal')).not.toBeInTheDocument()
+    })
+
+    it('closes help panel on Escape key', async () => {
+      render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+
+      // Open
+      fireEvent.keyDown(window, { key: '?' })
+      await vi.advanceTimersByTimeAsync(50)
+      expect(document.querySelector('.agent-flow__help-modal')).toBeInTheDocument()
+
+      // Close with Escape
+      fireEvent.keyDown(window, { key: 'Escape' })
+      await vi.advanceTimersByTimeAsync(50)
+      expect(document.querySelector('.agent-flow__help-modal')).not.toBeInTheDocument()
+    })
+
+    it('opens help panel via ? button click', async () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+
+      // Find the ? button
+      const helpBtn = Array.from(container.querySelectorAll('.agent-flow__header-btn')).find(
+        btn => btn.textContent?.trim() === '?'
+      ) as HTMLButtonElement
+      expect(helpBtn).toBeInTheDocument()
+
+      fireEvent.click(helpBtn)
+      await vi.advanceTimersByTimeAsync(50)
+
+      expect(document.querySelector('.agent-flow__help-modal')).toBeInTheDocument()
+    })
+
+    it('help modal shows keyboard shortcut descriptions', async () => {
+      render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+
+      fireEvent.keyDown(window, { key: '?' })
+      await vi.advanceTimersByTimeAsync(50)
+
+      expect(screen.getByText('Search events')).toBeInTheDocument()
+      expect(screen.getByText('Toggle this help panel')).toBeInTheDocument()
+      expect(screen.getByText('Close panels')).toBeInTheDocument()
+    })
+  })
+
+  describe('auto-scroll toggle', () => {
+    it('shows auto-scroll button when events exist', async () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" />)
+
+      const eventsEl = container.querySelector('.agent-flow__events') as HTMLElement
+      if (eventsEl) {
+        Object.defineProperty(eventsEl, 'clientHeight', { value: 600, configurable: true })
+        Object.defineProperty(eventsEl, 'scrollHeight', { value: 600, configurable: true })
+      }
+
+      await vi.advanceTimersByTimeAsync(20)
+      mockEventSource?.simulateMessage({ type: 'start', message: 'Start' })
+      await vi.advanceTimersByTimeAsync(50)
+
+      expect(container.querySelector('.agent-flow__auto-scroll-btn')).toBeInTheDocument()
+    })
+
+    it('auto-scroll is active by default', async () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" />)
+
+      const eventsEl = container.querySelector('.agent-flow__events') as HTMLElement
+      if (eventsEl) {
+        Object.defineProperty(eventsEl, 'clientHeight', { value: 600, configurable: true })
+        Object.defineProperty(eventsEl, 'scrollHeight', { value: 600, configurable: true })
+      }
+
+      await vi.advanceTimersByTimeAsync(20)
+      mockEventSource?.simulateMessage({ type: 'start', message: 'Start' })
+      await vi.advanceTimersByTimeAsync(50)
+
+      const autoScrollBtn = container.querySelector('.agent-flow__auto-scroll-btn')
+      expect(autoScrollBtn).toHaveClass('agent-flow__auto-scroll-btn--active')
+    })
+
+    it('toggles auto-scroll on button click', async () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" />)
+
+      const eventsEl = container.querySelector('.agent-flow__events') as HTMLElement
+      if (eventsEl) {
+        Object.defineProperty(eventsEl, 'clientHeight', { value: 600, configurable: true })
+        Object.defineProperty(eventsEl, 'scrollHeight', { value: 600, configurable: true })
+      }
+
+      await vi.advanceTimersByTimeAsync(20)
+      mockEventSource?.simulateMessage({ type: 'start', message: 'Start' })
+      await vi.advanceTimersByTimeAsync(50)
+
+      const autoScrollBtn = container.querySelector('.agent-flow__auto-scroll-btn') as HTMLButtonElement
+
+      // Initially active
+      expect(autoScrollBtn).toHaveClass('agent-flow__auto-scroll-btn--active')
+
+      // Click to deactivate
+      fireEvent.click(autoScrollBtn)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(autoScrollBtn).not.toHaveClass('agent-flow__auto-scroll-btn--active')
+
+      // Click to activate again
+      fireEvent.click(autoScrollBtn)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(autoScrollBtn).toHaveClass('agent-flow__auto-scroll-btn--active')
+    })
+  })
+
+  describe('relative time toggle', () => {
+    it('shows relative time toggle button', () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+      const relativeTimeBtn = container.querySelector('.agent-flow__header-btn[title*="absolute time"]')
+      expect(relativeTimeBtn).toBeInTheDocument()
+    })
+
+    it('relative time is off by default', () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+      const relativeTimeBtn = container.querySelector('.agent-flow__header-btn[title*="absolute time"]')
+      expect(relativeTimeBtn).not.toHaveClass('agent-flow__header-btn--active')
+    })
+
+    it('toggles relative time on button click', async () => {
+      const { container } = render(<AgentFlow url="http://localhost:8080/stream" autoConnect={false} />)
+      const relativeTimeBtn = container.querySelector('.agent-flow__header-btn[title*="absolute time"]') as HTMLButtonElement
+
+      // Click to enable
+      fireEvent.click(relativeTimeBtn)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(relativeTimeBtn).toHaveClass('agent-flow__header-btn--active')
+      expect(relativeTimeBtn.title).toContain('relative time')
+
+      // Click to disable
+      fireEvent.click(relativeTimeBtn)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(relativeTimeBtn).not.toHaveClass('agent-flow__header-btn--active')
+      expect(relativeTimeBtn.title).toContain('absolute time')
     })
   })
 })

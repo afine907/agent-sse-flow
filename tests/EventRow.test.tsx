@@ -35,12 +35,13 @@ describe('EventRow', () => {
 
   it('toggles args visibility', () => {
     render(<EventRow event={mockEvent} showArgs={true} onToggleArgs={() => {}} />)
-    
+
     // Args should be visible initially
     expect(screen.getByText(/"path"/)).toBeInTheDocument()
-    
-    // Find toggle button
-    const toggleBtn = screen.getByRole('button', { name: /args/i })
+
+    // Find the args toggle button (the inner <button>, not the row container with role="button")
+    const toggleBtns = screen.getAllByRole('button', { name: /args/i })
+    const toggleBtn = toggleBtns.find(el => el.tagName === 'BUTTON')!
     expect(toggleBtn).toBeInTheDocument()
   })
 
