@@ -1,7 +1,61 @@
-import { memo, useCallback, forwardRef } from 'react';
+import { memo, useCallback, useMemo, useState, forwardRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { FlowEvent, EventType } from './types';
 import { formatTime, formatRelativeTime, copyToClipboard, generateCurlCommand, EVENT_DOT_COLORS, getSummary } from './utils';
+
+/** Character threshold above which content is truncated */
+const TRUNCATE_THRESHOLD = 500;
+
+/** Props for the TruncatedContent helper */
+interface TruncatedContentProps {
+  content: string;
+  className?: string;
+  render?: (text: string) => React.ReactNode;
+}
+
+/**
+ * TruncatedContent — renders long text with a "Show more" toggle.
+ * Prevents rendering huge markdown blocks for every event row.
+ */
+const TruncatedContent = memo(function TruncatedContent({
+  content,
+  className,
+  render,
+}: TruncatedContentProps) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (content.length <= TRUNCATE_THRESHOLD) {
+    return (
+      <div className={className}>
+        {render ? render(content) : <ReactMarkdown>{content}</ReactMarkdown>}
+      </div>
+    );
+  }
+
+  const preview = content.slice(0, TRUNCATE_THRESHOLD);
+
+  return (
+    <div className={className}>
+      {expanded ? (
+        render ? render(content) : <ReactMarkdown>{content}</ReactMarkdown>
+      ) : (
+        <>
+          <div className="agent-flow__truncated">
+            {render ? render(preview) : <ReactMarkdown>{preview}</ReactMarkdown>}
+          </div>
+          <button
+            className="agent-flow__show-more"
+            onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
+            type="button"
+          >
+            Show more ({content.length} chars)
+          </button>
+        </>
+      )}
+    </div>
+  );
+});
+TruncatedContent.displayName = 'TruncatedContent';
 
 /** SVG icon paths by event type (Lucide-style, 24x24 viewBox) */
 const ICON_PATHS: Record<EventType, string> = {
@@ -83,7 +137,10 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
   },
   ref,
 ) {
-  const time = event.timestamp ? (useRelativeTime ? formatRelativeTime(event.timestamp) : formatTime(event.timestamp)) : null;
+  const time = useMemo(
+    () => event.timestamp ? (useRelativeTime ? formatRelativeTime(event.timestamp) : formatTime(event.timestamp)) : null,
+    [event.timestamp, useRelativeTime],
+  );
 
   return (
     <div
@@ -136,9 +193,11 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
           {time && <span className="agent-flow__event-time">{time}</span>}
         </div>
         {event.message && (
-          <div className="agent-flow__event-message agent-flow__markdown">
-            {renderMessage ? renderMessage(event.message) : <ReactMarkdown>{event.message}</ReactMarkdown>}
-          </div>
+          <TruncatedContent
+            content={event.message}
+            className="agent-flow__event-message agent-flow__markdown"
+            render={renderMessage}
+          />
         )}
         {event.tool && (
           <div className="agent-flow__event-tool">
@@ -163,9 +222,11 @@ export const EventRow = memo(forwardRef<HTMLDivElement, RowProps>(function Event
             <div className="agent-flow__event-result-actions">
               <CopyButton text={event.result} />
             </div>
-            <div className="agent-flow__event-result-content agent-flow__markdown">
-              {renderResult ? renderResult(event.result) : <ReactMarkdown>{event.result}</ReactMarkdown>}
-            </div>
+            <TruncatedContent
+              content={event.result}
+              className="agent-flow__event-result-content agent-flow__markdown"
+              render={renderResult}
+            />
           </div>
         )}
       </div>
@@ -195,7 +256,10 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
   },
   ref,
 ) {
-  const time = event.timestamp ? (useRelativeTime ? formatRelativeTime(event.timestamp) : formatTime(event.timestamp)) : null;
+  const time = useMemo(
+    () => event.timestamp ? (useRelativeTime ? formatRelativeTime(event.timestamp) : formatTime(event.timestamp)) : null,
+    [event.timestamp, useRelativeTime],
+  );
 
   return (
     <div
@@ -265,9 +329,11 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
         {!collapsed && (
           <div className="agent-flow__timeline-detail" onClick={e => e.stopPropagation()}>
             {event.message && (
-              <div className="agent-flow__event-message agent-flow__markdown">
-                {renderMessage ? renderMessage(event.message) : <ReactMarkdown>{event.message}</ReactMarkdown>}
-              </div>
+              <TruncatedContent
+                content={event.message}
+                className="agent-flow__event-message agent-flow__markdown"
+                render={renderMessage}
+              />
             )}
             {event.tool && (
               <div className="agent-flow__event-tool">
@@ -302,9 +368,11 @@ export const TimelineRow = memo(forwardRef<HTMLDivElement, RowProps & {
                 <div className="agent-flow__event-result-actions">
                   <CopyButton text={event.result} />
                 </div>
-                <div className="agent-flow__event-result-content agent-flow__markdown">
-                  {renderResult ? renderResult(event.result) : <ReactMarkdown>{event.result}</ReactMarkdown>}
-                </div>
+                <TruncatedContent
+                  content={event.result}
+                  className="agent-flow__event-result-content agent-flow__markdown"
+                  render={renderResult}
+                />
               </div>
             )}
           </div>

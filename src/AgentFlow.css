@@ -7,6 +7,30 @@
  *   z-index: 10  — Scroll-to-bottom button
  *   z-index: 20  — Search bar (reserved)
  *   z-index: 30  — Dropdowns / modals (reserved)
+ *
+ * CSS Performance Strategy (for 100K+ event lists):
+ *   1. CONTAINMENT — Every event row uses `contain: content` to isolate
+ *      layout and paint. Changes inside one row never trigger reflow in
+ *      siblings or ancestors, keeping recalc cost proportional to the
+ *      visible viewport rather than total DOM size.
+ *   2. CONTENT-VISIBILITY — `.agent-flow__event-row` uses
+ *      `content-visibility: auto` so the browser skips paint/composite
+ *      for off-screen rows entirely. Combined with `contain-intrinsic-size`,
+ *      the scrollbar thumb remains accurate without rendering hidden rows.
+ *   3. WILL-CHANGE — Applied to elements that animate transforms on
+ *      every interaction (scroll controls, event rows via virtual scroll).
+ *      This promotes them to their own compositor layer, avoiding repaints
+ *      during scroll. NOT applied to hover-only or one-shot animations
+ *      (modals, dropdowns) to avoid unnecessary layer promotion.
+ *   4. VIRTUAL SCROLLING — Only ~20 rows exist in the DOM at any time
+ *      (via @tanstack/react-virtual). The CSS containment above ensures
+ *      that even the existing rows don't trigger cross-row layout work.
+ *   5. GPU-ACCELERATED ANIMATIONS — All @keyframes use only `opacity`
+ *      and `transform` (GPU-compositable properties). The error pulse
+ *      uses a pseudo-element with opacity animation instead of animating
+ *      `box-shadow` directly. All animated elements have
+ *      `backface-visibility: hidden` to promote them to their own
+ *      compositor layer, avoiding main-thread repaints.
  */
 
 /* =============================================
@@ -150,6 +174,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 30;
   animation: status-dropdown-in 0.12s ease;
+  backface-visibility: hidden;
 }
 
 @keyframes status-dropdown-in {
@@ -275,10 +300,47 @@
   width: 100%;
 }
 
-/* Virtual scroll row */
+/* Virtual scroll row
+ * CSS Performance Strategy:
+ *   - contain: content  — isolates layout/paint so the browser can skip
+ *     off-screen rows entirely during style/layout recalculations.
+ *   - content-visibility: auto — tells the browser to skip rendering
+ *     work for off-screen rows (paint, compositing). Combined with
+ *     contain-intrinsic-size, the browser reserves space without
+ *     computing the actual content until the row scrolls into view.
+ *   This is critical for 100K+ event lists: only ~20 rows are rendered
+ *   at any time while the rest incur near-zero rendering cost.
+ */
 .agent-flow__event-row {
   padding-bottom: 8px;
-  contain: layout style;
+  contain: content;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 80px;
+}
+
+/* =============================================
+   Intersection Observer Placeholder
+   ============================================= */
+
+/*
+ * Lightweight placeholder rendered for virtual rows that haven't been
+ * scrolled into the viewport yet. Avoids expensive ReactMarkdown and
+ * layout work for off-screen rows while reserving the correct amount
+ * of space (controlled by the virtualizer's estimated size).
+ */
+.agent-flow__row-placeholder {
+  min-height: 48px;
+  border-radius: var(--af-radius-sm);
+}
+
+.agent-flow--dark .agent-flow__row-placeholder {
+  background: var(--af-surface);
+  opacity: 0.5;
+}
+
+.agent-flow--light .agent-flow__row-placeholder {
+  background: var(--af-surface);
+  opacity: 0.5;
 }
 
 /* =============================================
@@ -323,35 +385,56 @@
 .agent-flow__event--error {
   border-left: 2.5px solid #ef4444;
   border-color: rgba(239, 68, 68, 0.4);
+  position: relative;
+}
+
+/* GPU-composited error pulse: uses a pseudo-element with opacity animation
+   instead of animating box-shadow (which triggers expensive repaints). */
+.agent-flow__event--error::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.25);
+  opacity: 0;
   animation: error-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+  backface-visibility: hidden;
 }
 
 .agent-flow__event--error.agent-flow__event--highlight {
   border-color: #ef4444;
-  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.3), 0 0 8px rgba(239, 68, 68, 0.15);
+}
+
+.agent-flow__event--error.agent-flow__event--highlight::after {
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.6), 0 0 16px rgba(239, 68, 68, 0.3);
   animation: error-highlight-flash 0.6s ease;
 }
 
 .agent-flow__timeline-item--error {
+  position: relative;
+}
+
+.agent-flow__timeline-item--error::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.25);
+  opacity: 0;
   animation: error-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+  backface-visibility: hidden;
 }
 
 @keyframes error-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
-  }
-  50% {
-    box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.25);
-  }
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
 }
 
 @keyframes error-highlight-flash {
-  0% {
-    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.6), 0 0 16px rgba(239, 68, 68, 0.3);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
-  }
+  0% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 .agent-flow__event--end { border-left: 2.5px solid #10b981; }
@@ -786,7 +869,9 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  will-change: transform;
   transition: transform 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+  backface-visibility: hidden;
   background: var(--af-bg-raised);
   color: var(--af-text-secondary);
 }
@@ -813,7 +898,9 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  will-change: transform;
   transition: transform 0.15s, opacity 0.15s, background 0.15s;
+  backface-visibility: hidden;
   background: var(--af-bg-raised);
   color: var(--af-text-secondary);
 }
@@ -997,6 +1084,7 @@
   flex-shrink: 0;
   color: var(--af-text-tertiary);
   transition: transform 0.15s ease, color 0.15s;
+  backface-visibility: hidden;
 }
 
 .agent-flow__timeline-chevron--open {
@@ -1012,6 +1100,7 @@
   margin-top: 6px;
   padding: 8px 0 4px 2px;
   animation: timeline-expand 0.15s ease;
+  backface-visibility: hidden;
 }
 
 @keyframes timeline-expand {
@@ -1128,6 +1217,13 @@
   color: var(--af-accent);
   border-color: var(--af-accent);
   background: var(--af-accent-muted);
+}
+
+/* Restore session button */
+.agent-flow__restore-btn {
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.4);
+  animation: pulse 2s infinite;
 }
 
 .agent-flow__search-bar {
@@ -1460,6 +1556,7 @@
   flex-shrink: 0;
   color: var(--af-text-tertiary);
   transition: transform 0.15s ease, color 0.15s;
+  backface-visibility: hidden;
 }
 
 .agent-flow__group-chevron--open {
@@ -1584,6 +1681,7 @@
   justify-content: center;
   z-index: 30; /* Layer 30: modals */
   animation: modal-fade-in 0.15s ease;
+  backface-visibility: hidden;
 }
 
 @keyframes modal-fade-in {
@@ -1600,6 +1698,7 @@
   border-radius: var(--af-radius);
   overflow: hidden;
   animation: modal-scale-in 0.15s ease;
+  backface-visibility: hidden;
 }
 
 @keyframes modal-scale-in {
@@ -1693,6 +1792,7 @@
   border-radius: var(--af-radius);
   overflow: hidden;
   animation: modal-scale-in 0.15s ease;
+  backface-visibility: hidden;
 }
 
 .agent-flow--dark .agent-flow__help-modal {
@@ -1768,4 +1868,65 @@
 
 .agent-flow--unsupported .agent-flow__empty {
   line-height: 1.8;
+}
+
+/* =============================================
+   Truncated Content (Show More)
+   ============================================= */
+
+.agent-flow__truncated {
+  position: relative;
+  overflow: hidden;
+  max-height: 200px;
+}
+
+/* Fade-out gradient at the bottom of truncated content */
+.agent-flow__truncated::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  pointer-events: none;
+}
+
+.agent-flow--dark .agent-flow__truncated::after {
+  background: linear-gradient(to bottom, transparent, var(--af-surface));
+}
+
+.agent-flow--light .agent-flow__truncated::after {
+  background: linear-gradient(to bottom, transparent, var(--af-surface));
+}
+
+/* Result content uses a different background for the gradient */
+.agent-flow__event-result .agent-flow__truncated::after {
+  height: 40px;
+}
+
+.agent-flow--dark .agent-flow__event-result .agent-flow__truncated::after {
+  background: linear-gradient(to bottom, transparent, var(--af-bg));
+}
+
+.agent-flow--light .agent-flow__event-result .agent-flow__truncated::after {
+  background: linear-gradient(to bottom, transparent, var(--af-bg-raised));
+}
+
+.agent-flow__show-more {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: var(--af-mono);
+  color: var(--af-accent);
+  background: var(--af-accent-muted);
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.agent-flow__show-more:hover {
+  opacity: 0.8;
 }

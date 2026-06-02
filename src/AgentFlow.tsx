@@ -7,11 +7,12 @@
  * SSR-safe: gracefully degrades when EventSource is unavailable.
  */
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo, memo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import './AgentFlow.css';
 
 import type { AgentFlowProps, FlowEvent, EventType } from './types';
+import { useVisibleRows } from './useVisibleRows';
 
 /** A virtual list item: either a group header or an event */
 interface GroupHeaderItem {
@@ -33,12 +34,84 @@ import { useSSE } from './useSSE';
 import { EventRow, TimelineRow } from './EventRow';
 import { exportToJSON, exportToCSV, copyToClipboard, EVENT_DOT_COLORS } from './utils';
 
-export type { AgentFlowProps } from './types';
-export { EventRow, TimelineRow } from './EventRow';
-export { useSSE } from './useSSE';
+// Note: AgentFlowProps, EventRow, TimelineRow, useSSE are exported from index.ts
+// This avoids duplicate re-exports that could interfere with tree-shaking
 
 /** All event types for filter checkboxes */
 const ALL_EVENT_TYPES: EventType[] = ['start', 'thinking', 'tool_call', 'tool_result', 'message', 'error', 'end'];
+
+/**
+ * Memoized EventRow wrapper that binds event-id-specific callbacks.
+ * Without this, inline arrow functions in the parent would create new
+ * references every render, defeating EventRow's React.memo.
+ */
+const MemoizedEventRow = memo(function MemoizedEventRow({
+  event,
+  collapsedIds,
+  expandedArgsIds,
+  bookmarkedIds,
+  highlightedEventId,
+  relativeTime,
+  renderMessage,
+  renderResult,
+  viewMode,
+  onToggleCollapse,
+  onToggleArgs,
+  onToggleBookmark,
+  onEventClick,
+}: {
+  event: FlowEvent;
+  collapsedIds: Set<number>;
+  expandedArgsIds: Set<number>;
+  bookmarkedIds: Set<number>;
+  highlightedEventId: number | null;
+  relativeTime: boolean;
+  renderMessage?: (message: string) => React.ReactNode;
+  renderResult?: (result: string) => React.ReactNode;
+  viewMode: 'list' | 'timeline';
+  onToggleCollapse: (id: number) => void;
+  onToggleArgs: (id: number) => void;
+  onToggleBookmark: (id: number) => void;
+  onEventClick: (event: FlowEvent) => void;
+}) {
+  const handleToggle = useCallback(() => onToggleCollapse(event.id), [onToggleCollapse, event.id]);
+  const handleToggleArgs = useCallback(() => onToggleArgs(event.id), [onToggleArgs, event.id]);
+  const handleToggleBookmark = useCallback(() => onToggleBookmark(event.id), [onToggleBookmark, event.id]);
+
+  if (viewMode === 'timeline') {
+    return (
+      <TimelineRow
+        event={event}
+        collapsed={collapsedIds.has(event.id)}
+        onToggle={handleToggle}
+        showArgs={expandedArgsIds.has(event.id)}
+        onToggleArgs={handleToggleArgs}
+        renderMessage={renderMessage}
+        renderResult={renderResult}
+        onEventClick={onEventClick}
+        highlighted={highlightedEventId === event.id}
+        relativeTime={relativeTime}
+        bookmarked={bookmarkedIds.has(event.id)}
+        onToggleBookmark={handleToggleBookmark}
+      />
+    );
+  }
+
+  return (
+    <EventRow
+      event={event}
+      showArgs={expandedArgsIds.has(event.id)}
+      onToggleArgs={handleToggleArgs}
+      renderMessage={renderMessage}
+      renderResult={renderResult}
+      onEventClick={onEventClick}
+      highlighted={highlightedEventId === event.id}
+      relativeTime={relativeTime}
+      bookmarked={bookmarkedIds.has(event.id)}
+      onToggleBookmark={handleToggleBookmark}
+    />
+  );
+});
 
 /**
  * AgentFlow component
@@ -381,6 +454,23 @@ export function AgentFlow({
     },
   });
 
+  // IntersectionObserver: track which rows have entered the viewport.
+  // Rows that haven't been scrolled into view yet render a lightweight
+  // placeholder instead of the full EventRow / TimelineRow. This reduces
+  // the cost of rendering expensive content (e.g. ReactMarkdown) for
+  // rows at the edges of the overscan buffer.
+  const { measureRef, isVisible } = useVisibleRows(parentRef);
+
+  // Combined ref callback: measures the element for the virtualizer AND
+  // registers it with the IntersectionObserver.
+  const rowRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      virtualizer.measureElement(element);
+      measureRef(element);
+    },
+    [virtualizer, measureRef],
+  );
+
   // Auto-scroll to bottom when new events arrive (if enabled)
   useEffect(() => {
     if (autoScroll && virtualListItems.length > 0) {
@@ -427,8 +517,11 @@ export function AgentFlow({
   }, [errorIndices, currentErrorNavIndex, virtualizer, virtualListItems]);
 
 
-  // Determine if any filters are active
-  const hasActiveFilters = searchQuery || timeFrom || timeTo || enabledTypes.size !== ALL_EVENT_TYPES.length || showBookmarkedOnly;
+  // Determine if any filters are active (memoized)
+  const hasActiveFilters = useMemo(
+    () => searchQuery || timeFrom || timeTo || enabledTypes.size !== ALL_EVENT_TYPES.length || showBookmarkedOnly,
+    [searchQuery, timeFrom, timeTo, enabledTypes, showBookmarkedOnly],
+  );
 
   // SSR fallback
   if (!isSupported) {
@@ -856,7 +949,7 @@ export function AgentFlow({
                         transform: `translateY(${virtualRow.start}px)`,
                       }}
                       data-index={virtualRow.index}
-                      ref={virtualizer.measureElement}
+                      ref={rowRef}
                     >
                       <button
                         className="agent-flow__group-header"
@@ -879,8 +972,11 @@ export function AgentFlow({
                   );
                 }
 
-                // Render event
+                // Render event — full content only when the row has been
+                // scrolled into the viewport; otherwise render a lightweight
+                // placeholder to avoid expensive markdown / layout work.
                 const event = item.event;
+                const visible = isVisible(virtualRow.index);
                 return (
                   <div
                     key={event.id}
@@ -893,36 +989,26 @@ export function AgentFlow({
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
                     data-index={virtualRow.index}
-                    ref={virtualizer.measureElement}
+                    ref={rowRef}
                   >
-                    {viewMode === 'timeline' ? (
-                      <TimelineRow
+                    {visible ? (
+                      <MemoizedEventRow
                         event={event}
-                        collapsed={collapsedIds.has(event.id)}
-                        onToggle={() => toggleCollapse(event.id)}
-                        showArgs={expandedArgsIds.has(event.id)}
-                        onToggleArgs={() => toggleArgs(event.id)}
+                        collapsedIds={collapsedIds}
+                        expandedArgsIds={expandedArgsIds}
+                        bookmarkedIds={bookmarkedIds}
+                        highlightedEventId={highlightedEventId}
+                        relativeTime={relativeTime}
                         renderMessage={renderMessage}
                         renderResult={renderResult}
+                        viewMode={viewMode}
+                        onToggleCollapse={toggleCollapse}
+                        onToggleArgs={toggleArgs}
+                        onToggleBookmark={toggleBookmark}
                         onEventClick={setSelectedEvent}
-                        highlighted={highlightedEventId === event.id}
-                        relativeTime={relativeTime}
-                        bookmarked={bookmarkedIds.has(event.id)}
-                        onToggleBookmark={() => toggleBookmark(event.id)}
                       />
                     ) : (
-                      <EventRow
-                        event={event}
-                        showArgs={expandedArgsIds.has(event.id)}
-                        onToggleArgs={() => toggleArgs(event.id)}
-                        renderMessage={renderMessage}
-                        renderResult={renderResult}
-                        onEventClick={setSelectedEvent}
-                        highlighted={highlightedEventId === event.id}
-                        relativeTime={relativeTime}
-                        bookmarked={bookmarkedIds.has(event.id)}
-                        onToggleBookmark={() => toggleBookmark(event.id)}
-                      />
+                      <div className="agent-flow__row-placeholder" />
                     )}
                   </div>
                 );

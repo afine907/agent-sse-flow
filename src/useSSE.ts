@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { FlowEvent, SSEStats, ConnectionDetails } from './types';
+import type { ParsedSSEEvent } from './sse-worker';
 
 export type { SSEStats } from './types';
 
@@ -59,12 +60,77 @@ export function useSSE({
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const manualDisconnectRef = useRef(false);
 
-  // Cleanup on unmount
+  // Web Worker for off-main-thread JSON parsing
+  const workerRef = useRef<Worker | null>(null);
+  const workerReadyRef = useRef(false);
+  const flushPendingRef = useRef<() => void>(() => {});
+  const onErrorRef = useRef(onError);
+
+  // Cleanup on unmount + worker init
   useEffect(() => {
     isMountedRef.current = true;
+
+    // Initialize Web Worker for JSON parsing (if supported)
+    if (typeof Worker !== 'undefined') {
+      try {
+        const worker = new Worker(
+          new URL('./sse-worker.ts', import.meta.url),
+          { type: 'module' },
+        );
+        worker.onmessage = (e: MessageEvent) => {
+          if (!isMountedRef.current) return;
+          const data = e.data;
+          if (data.type === 'parsed') {
+            const parsed: ParsedSSEEvent = data.event;
+            const event: FlowEvent = {
+              id: parsed.id,
+              type: parsed.type as FlowEvent['type'],
+              message: parsed.message,
+              tool: parsed.tool,
+              args: parsed.args,
+              argsJson: parsed.argsJson,
+              result: parsed.result,
+              timestamp: parsed.timestamp,
+              agentName: parsed.agentName,
+              agentColor: parsed.agentColor,
+              cost: parsed.cost,
+              tokens: parsed.tokens,
+              duration: parsed.duration,
+            };
+            pendingRef.current.push(event);
+            if (rafRef.current === null) {
+              rafRef.current = requestAnimationFrame(() => {
+                rafRef.current = null;
+                flushPendingRef.current();
+              });
+            }
+          } else if (data.type === 'error') {
+            console.error('[AgentFlow] Worker parse error:', data.error);
+            onErrorRef.current?.(new Error(`Failed to parse SSE event: ${data.error}`));
+          }
+        };
+        worker.onerror = (err) => {
+          console.error('[AgentFlow] Worker error:', err);
+          workerReadyRef.current = false;
+          workerRef.current = null;
+        };
+        workerRef.current = worker;
+        workerReadyRef.current = true;
+      } catch {
+        // Worker not supported (e.g. in SSR or restricted environments)
+        workerReadyRef.current = false;
+      }
+    }
+
     return () => {
       isMountedRef.current = false;
       manualDisconnectRef.current = true;
+
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+        workerReadyRef.current = false;
+      }
 
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
@@ -135,6 +201,10 @@ export function useSSE({
     });
   }, [maxEvents]);
 
+  // Keep worker callback refs in sync
+  flushPendingRef.current = flushPending;
+  onErrorRef.current = onError;
+
   // Schedule reconnect with exponential backoff
   const scheduleReconnect = useCallback(() => {
     if (!autoReconnect || manualDisconnectRef.current) return;
@@ -154,6 +224,41 @@ export function useSSE({
       }
     }, delay);
   }, [autoReconnect, maxReconnectAttempts, handleStatusChange, onError]);
+
+  /** Fallback: parse SSE JSON on the main thread */
+  const parseOnMainThread = useCallback((rawData: string) => {
+    try {
+      const raw = JSON.parse(rawData);
+      let argsJson: string | undefined;
+      if (raw.args) {
+        try {
+          argsJson = JSON.stringify(raw.args, null, 2);
+        } catch (err) {
+          console.error('[AgentFlow] Failed to serialize args:', err);
+          argsJson = '[Unable to serialize]';
+        }
+      }
+      const event: FlowEvent = {
+        ...raw,
+        id: idCounterRef.current++,
+        timestamp: raw.timestamp || Date.now(),
+        argsJson,
+      };
+      pendingRef.current.push(event);
+
+      if (rafRef.current === null) {
+        rafRef.current = requestAnimationFrame(() => {
+          rafRef.current = null;
+          flushPending();
+        });
+      }
+    } catch (err) {
+      console.error('[AgentFlow] Failed to parse event:', err);
+      if (isMountedRef.current) {
+        onError?.(new Error(`Failed to parse SSE event: ${err}`));
+      }
+    }
+  }, [flushPending, onError]);
 
   const connect = useCallback(() => {
     if (!checkEventSourceSupport()) {
@@ -185,36 +290,16 @@ export function useSSE({
     eventSource.onmessage = (e) => {
       if (!isMountedRef.current) return;
 
-      try {
-        const raw = JSON.parse(e.data);
-        let argsJson: string | undefined;
-        if (raw.args) {
-          try {
-            argsJson = JSON.stringify(raw.args, null, 2);
-          } catch (err) {
-            console.error('[AgentFlow] Failed to serialize args:', err);
-            argsJson = '[Unable to serialize]';
-          }
+      // Use Web Worker for JSON parsing when available
+      if (workerReadyRef.current && workerRef.current) {
+        try {
+          workerRef.current.postMessage({ type: 'parse', raw: e.data });
+        } catch (err) {
+          // Fallback to main-thread parsing if worker postMessage fails
+          parseOnMainThread(e.data);
         }
-        const event: FlowEvent = {
-          ...raw,
-          id: idCounterRef.current++,
-          timestamp: raw.timestamp || Date.now(),
-          argsJson,
-        };
-        pendingRef.current.push(event);
-
-        if (rafRef.current === null) {
-          rafRef.current = requestAnimationFrame(() => {
-            rafRef.current = null;
-            flushPending();
-          });
-        }
-      } catch (err) {
-        console.error('[AgentFlow] Failed to parse event:', err);
-        if (isMountedRef.current) {
-          onError?.(new Error(`Failed to parse SSE event: ${err}`));
-        }
+      } else {
+        parseOnMainThread(e.data);
       }
     };
 
@@ -248,7 +333,7 @@ export function useSSE({
         handleStatusChange('disconnected');
       }
     };
-  }, [url, handleStatusChange, onError, flushPending, scheduleReconnect]);
+  }, [url, handleStatusChange, onError, flushPending, scheduleReconnect, parseOnMainThread]);
 
   const disconnect = useCallback(() => {
     manualDisconnectRef.current = true;

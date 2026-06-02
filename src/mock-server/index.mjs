@@ -72,6 +72,26 @@ const server = createServer((req, res) => {
     return;
   }
 
+  if (url.startsWith('/stream-fast')) {
+    // Fast endpoint: sends all events in a single burst for benchmarking
+    const totalCount = parseCount(url);
+
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    });
+
+    for (let seq = 0; seq < totalCount; seq++) {
+      const event = generateEvent(seq);
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    }
+    res.write(`data: ${JSON.stringify({ type: 'end', message: 'Stream complete', timestamp: Date.now() })}\n\n`);
+    res.end();
+    return;
+  }
+
   if (url.startsWith('/stream')) {
     const totalCount = parseCount(url);
     const BATCH_SIZE = 50;

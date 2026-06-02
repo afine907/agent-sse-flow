@@ -3,6 +3,7 @@
   "version": "2.3.0",
   "packageManager": "pnpm@10.8.1",
   "description": "Agent SSE Stream Visualizer - A lightweight React component. Free, unlimited, local.",
+  "sideEffects": false,
   "main": "dist/agent-sse-flow.cjs.js",
   "module": "dist/agent-sse-flow.es.js",
   "types": "dist/index.d.ts",
@@ -12,7 +13,8 @@
       "require": "./dist/agent-sse-flow.cjs.js",
       "types": "./dist/index.d.ts"
     },
-    "./style.css": "./dist/style.css"
+    "./style.css": "./dist/style.css",
+    "./css": "./dist/style.css"
   },
   "files": [
     "dist",
@@ -28,6 +30,8 @@
     "build:demo": "vite build --config vite.demo.config.ts",
     "mock-server": "node src/mock-server/index.mjs",
     "perf-test": "playwright test tests/perf.spec.ts",
+    "lighthouse-test": "playwright test tests/lighthouse.spec.ts",
+    "benchmark": "vitest run --config vitest.benchmark.config.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

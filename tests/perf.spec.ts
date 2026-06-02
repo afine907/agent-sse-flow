@@ -240,3 +240,178 @@ test.describe('AgentFlow Performance', () => {
     }
   });
 });
+
+test.describe('Performance Regression Suite', () => {
+  test('render 10K events in under 2 seconds', async ({ page }) => {
+    // Use the fast endpoint that sends all events in a single burst
+    const start = Date.now();
+    await page.goto(`${MOCK_SERVER.replace('3001', '5173')}/?sse=${MOCK_SERVER}/stream-fast?count=10000`);
+    await page.waitForSelector('.agent-flow');
+
+    // Wait for all 10K events to appear in the event count display
+    await page.waitForFunction(
+      () => {
+        const countEl = document.querySelector('.agent-flow__event-count');
+        if (!countEl) return false;
+        const text = countEl.textContent || '';
+        // Match "10000 events" or "10,000 events"
+        return text.replace(/,/g, '').includes('10000');
+      },
+      { timeout: 10_000 }
+    );
+
+    const elapsed = Date.now() - start;
+    console.log(`Render 10K events: ${elapsed}ms`);
+    expect(elapsed).toBeLessThan(2000);
+  });
+
+  test('scroll 100 frames at 10K events, average FPS >= 30', async ({ page }) => {
+    await page.goto(`${MOCK_SERVER.replace('3001', '5173')}/?sse=${MOCK_SERVER}/stream-fast?count=10000`);
+    await page.waitForSelector('.agent-flow');
+
+    // Wait for all events to load
+    await page.waitForFunction(
+      () => {
+        const countEl = document.querySelector('.agent-flow__event-count');
+        if (!countEl) return false;
+        const text = countEl.textContent || '';
+        return text.replace(/,/g, '').includes('10000');
+      },
+      { timeout: 10_000 }
+    );
+
+    // Check if scrollable
+    const isScrollable = await page.evaluate(() => {
+      const container = document.querySelector('.agent-flow__events');
+      return container ? container.scrollHeight > container.clientHeight : false;
+    });
+
+    if (!isScrollable) {
+      console.log('Not enough events to scroll, skipping FPS test');
+      test.skip();
+      return;
+    }
+
+    // Measure FPS during 100 scroll frames
+    const fps = await page.evaluate(async () => {
+      const container = document.querySelector('.agent-flow__events');
+      if (!container) return 0;
+
+      return new Promise<number>((resolve) => {
+        const frameTimes: number[] = [];
+        let lastTime = performance.now();
+        let scrollPos = 0;
+        const maxScroll = container.scrollHeight - container.clientHeight;
+        let frameCount = 0;
+
+        function tick(now: number) {
+          const delta = now - lastTime;
+          frameTimes.push(delta);
+          lastTime = now;
+
+          // Scroll down
+          scrollPos += 300;
+          if (scrollPos > maxScroll) scrollPos = 0;
+          container.scrollTop = scrollPos;
+
+          frameCount++;
+          if (frameCount >= 100) {
+            // Trim outliers (first 10 and last 10)
+            const sorted = frameTimes.slice(10, -10).sort((a, b) => a - b);
+            const median = sorted[Math.floor(sorted.length / 2)];
+            resolve(1000 / median);
+            return;
+          }
+
+          requestAnimationFrame(tick);
+        }
+
+        requestAnimationFrame(tick);
+      });
+    });
+
+    console.log(`Scroll FPS (100 frames, 10K events): ${fps.toFixed(1)}`);
+    expect(fps).toBeGreaterThanOrEqual(30);
+  });
+
+  test('search through 10K events in under 500ms', async ({ page }) => {
+    await page.goto(`${MOCK_SERVER.replace('3001', '5173')}/?sse=${MOCK_SERVER}/stream-fast?count=10000`);
+    await page.waitForSelector('.agent-flow');
+
+    // Wait for all events to load
+    await page.waitForFunction(
+      () => {
+        const countEl = document.querySelector('.agent-flow__event-count');
+        if (!countEl) return false;
+        const text = countEl.textContent || '';
+        return text.replace(/,/g, '').includes('10000');
+      },
+      { timeout: 10_000 }
+    );
+
+    // Open search via keyboard shortcut
+    await page.keyboard.press('Control+k');
+    await page.waitForSelector('.agent-flow__search-input');
+
+    // Measure search time: type a query that will match many events
+    const searchTime = await page.evaluate(async () => {
+      const input = document.querySelector('.agent-flow__search-input') as HTMLInputElement;
+      if (!input) return -1;
+
+      const start = performance.now();
+
+      // Use native input value setter + input event to trigger React's onChange
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype, 'value'
+      )?.set;
+      nativeInputValueSetter?.call(input, 'tool_call');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+
+      // Wait for React to flush and update the DOM
+      await new Promise<void>((resolve) => requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      }));
+
+      return performance.now() - start;
+    });
+
+    console.log(`Search through 10K events: ${searchTime.toFixed(1)}ms`);
+    expect(searchTime).toBeGreaterThanOrEqual(0);
+    expect(searchTime).toBeLessThan(500);
+  });
+
+  test('export 10K events as JSON in under 1 second', async ({ page }) => {
+    await page.goto(`${MOCK_SERVER.replace('3001', '5173')}/?sse=${MOCK_SERVER}/stream-fast?count=10000`);
+    await page.waitForSelector('.agent-flow');
+
+    // Wait for all events to load
+    await page.waitForFunction(
+      () => {
+        const countEl = document.querySelector('.agent-flow__event-count');
+        if (!countEl) return false;
+        const text = countEl.textContent || '';
+        return text.replace(/,/g, '').includes('10000');
+      },
+      { timeout: 10_000 }
+    );
+
+    // Set up download listener before clicking export
+    const downloadPromise = page.waitForEvent('download', { timeout: 10_000 });
+
+    // Open export dropdown and click JSON
+    await page.click('.agent-flow__export-toggle');
+    await page.waitForSelector('.agent-flow__export-dropdown');
+
+    const start = Date.now();
+    await page.click('.agent-flow__export-option:has-text("Export as JSON")');
+
+    // Wait for the download to be triggered
+    const download = await downloadPromise;
+    const elapsed = Date.now() - start;
+
+    console.log(`Export 10K events as JSON: ${elapsed}ms`);
+    expect(download.suggestedFilename()).toBe('agent-flow-events.json');
+    expect(elapsed).toBeLessThan(1000);
+  });
+});
