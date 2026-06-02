@@ -53,6 +53,15 @@ function App() {
 | `maxEvents` | `number` | `100000` | Maximum events to display |
 | `onError` | `(error: Error) => void` | - | Error callback |
 | `onStatusChange` | `(status: string) => void` | - | Connection status callback |
+| `viewMode` | `'list' \| 'timeline'` | `'list'` | View mode: card-style list or collapsible timeline |
+| `defaultCollapsed` | `boolean` | `false` | Whether new events are collapsed by default in timeline mode |
+| `autoReconnect` | `boolean` | `true` | Reconnect automatically on disconnect |
+| `maxReconnectAttempts` | `number` | `10` | Maximum reconnect attempts before giving up |
+| `className` | `string` | - | Custom CSS class name |
+| `style` | `React.CSSProperties` | - | Custom inline style object |
+| `searchKey` | `string` | `'k'` | Keyboard shortcut key for search (used with Ctrl/Cmd) |
+| `renderMessage` | `(message: string) => ReactNode` | - | Custom renderer for event messages (overrides default markdown) |
+| `renderResult` | `(result: string) => ReactNode` | - | Custom renderer for tool results (overrides default markdown) |
 
 ## SSE Event Format
 
@@ -137,6 +146,9 @@ function App() {
 - ✅ **Multi-Agent** - `agentName` and `agentColor` for multi-agent systems
 - ✅ **Agent Filter** - Dropdown to filter events by agent
 - ✅ **Cost Tracking** - `cost`, `tokens`, `duration` fields for monitoring API usage
+- ✅ **Search** - Ctrl/Cmd+K to search across events
+- ✅ **Event Export** - Export events for offline analysis
+- ✅ **Timeline View** - Collapsible timeline mode for structured trace visualization
 
 ## Comparison
 
