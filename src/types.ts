@@ -1,8 +1,9 @@
 import type React from 'react';
+import type { Locale } from './i18n';
 
 export type EventStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
-export type ViewMode = 'list' | 'timeline';
+export type ViewMode = 'list' | 'timeline' | 'waterfall';
 
 export type Theme = 'light' | 'dark';
 
@@ -37,8 +38,18 @@ export interface AgentFlowProps {
   className?: string;
   /** Custom style object */
   style?: React.CSSProperties;
+  /**
+   * CSS variable overrides for theming.
+   * Keys should be CSS custom property names (e.g. '--af-accent', '--af-bg').
+   * Applied as inline style on the root element.
+   */
+  customTheme?: Record<string, string>;
   /** Keyboard search shortcut key (default: 'k' with Ctrl/Cmd) */
   searchKey?: string;
+  /** Locale for UI labels: 'en' (default) or 'zh' */
+  locale?: Locale;
+  /** Enable subtle sound feedback for events (default: false) */
+  enableSounds?: boolean;
 }
 
 export interface FlowEvent {
@@ -62,6 +73,8 @@ export interface FlowEvent {
   agentName?: string;
   /** Agent color (hex format, e.g. #3b82f6) */
   agentColor?: string;
+  /** Agent avatar: URL to image, emoji, or short text */
+  agentAvatar?: string;
   /** Cost in USD (optional) */
   cost?: number;
   /** Token count (optional) */

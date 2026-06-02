@@ -1095,23 +1095,45 @@
   color: var(--af-text-secondary);
 }
 
+/* Detail wrapper: CSS grid trick for smooth height transition
+ * Uses grid-template-rows: 0fr -> 1fr so the browser interpolates
+ * height naturally without needing a fixed max-height hack. */
+.agent-flow__timeline-detail-wrapper {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.25s ease, opacity 0.2s ease;
+  overflow: hidden;
+  opacity: 1;
+}
+
+.agent-flow__timeline-detail-wrapper--collapsed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+.agent-flow__timeline-detail-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
 /* Detail (expanded content) */
 .agent-flow__timeline-detail {
   margin-top: 6px;
   padding: 8px 0 4px 2px;
-  animation: timeline-expand 0.15s ease;
   backface-visibility: hidden;
 }
 
-@keyframes timeline-expand {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Staggered animation when multiple items expand at once.
+ * Uses nth-child to add incremental delays for a cascade effect. */
+.agent-flow__timeline-item:nth-child(1) .agent-flow__timeline-detail-wrapper { transition-delay: 0ms; }
+.agent-flow__timeline-item:nth-child(2) .agent-flow__timeline-detail-wrapper { transition-delay: 30ms; }
+.agent-flow__timeline-item:nth-child(3) .agent-flow__timeline-detail-wrapper { transition-delay: 60ms; }
+.agent-flow__timeline-item:nth-child(4) .agent-flow__timeline-detail-wrapper { transition-delay: 90ms; }
+.agent-flow__timeline-item:nth-child(5) .agent-flow__timeline-detail-wrapper { transition-delay: 120ms; }
+
+/* Collapse: no stagger (instant feel for closing) */
+.agent-flow__timeline-detail-wrapper--collapsed {
+  transition-delay: 0ms;
 }
 
 /* Type label colors */
@@ -1631,6 +1653,82 @@
 }
 
 /* =============================================
+   Pin Button
+   ============================================= */
+
+.agent-flow__pin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--af-text-tertiary);
+  background: transparent;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.agent-flow__event:hover .agent-flow__pin-btn,
+.agent-flow__timeline-item:hover .agent-flow__pin-btn {
+  opacity: 0.7;
+}
+
+.agent-flow__pin-btn:hover {
+  opacity: 1 !important;
+  color: #6e8bfa;
+  background: rgba(110, 139, 250, 0.1);
+}
+
+.agent-flow__pin-btn--active {
+  color: #6e8bfa;
+  opacity: 0.8 !important;
+}
+
+.agent-flow__pin-btn--active:hover {
+  opacity: 1 !important;
+}
+
+/* Pinned event highlight */
+.agent-flow__event--pinned {
+  border-left: 2.5px solid #6e8bfa !important;
+}
+
+.agent-flow--dark .agent-flow__event--pinned {
+  background: rgba(110, 139, 250, 0.05);
+}
+
+.agent-flow--light .agent-flow__event--pinned {
+  background: rgba(79, 110, 247, 0.04);
+}
+
+/* Pinned separator */
+.agent-flow__pinned-separator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px;
+}
+
+.agent-flow__pinned-separator-line {
+  flex: 1;
+  height: 1px;
+  background: var(--af-border);
+}
+
+.agent-flow__pinned-separator-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--af-text-tertiary);
+  flex-shrink: 0;
+}
+
+/* =============================================
    Clickable Event Row
    ============================================= */
 
@@ -1929,4 +2027,894 @@
 
 .agent-flow__show-more:hover {
   opacity: 0.8;
+}
+
+/* =============================================
+   Agent Avatar
+   ============================================= */
+
+.agent-flow__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+  vertical-align: middle;
+}
+
+.agent-flow__avatar--letter {
+  color: #fff;
+  font-weight: 600;
+  font-family: var(--af-font);
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.agent-flow__avatar--text {
+  background: transparent;
+  user-select: none;
+}
+
+/* Agent badge wrapper (avatar + name side by side) */
+.agent-flow__agent-badge-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* =============================================
+   Agent Filter Custom Dropdown
+   ============================================= */
+
+.agent-flow__agent-filter {
+  position: relative;
+}
+
+.agent-flow__agent-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--af-font);
+  background: transparent;
+  color: var(--af-text-secondary);
+  transition: border-color 0.15s;
+}
+
+.agent-flow__agent-filter-toggle:hover {
+  border-color: var(--af-accent);
+  color: var(--af-text);
+}
+
+.agent-flow__agent-filter-toggle--active {
+  border-color: var(--af-accent);
+  background: var(--af-accent-muted);
+  color: var(--af-accent);
+}
+
+.agent-flow__agent-filter-selected {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.agent-flow__agent-filter-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 160px;
+  padding: 4px;
+  border: 1px solid var(--af-border);
+  border-radius: var(--af-radius-sm);
+  background: var(--af-bg-raised);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 30;
+  animation: status-dropdown-in 0.12s ease;
+  backface-visibility: hidden;
+}
+
+.agent-flow__agent-filter-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--af-font);
+  text-align: left;
+  color: var(--af-text);
+  background: transparent;
+  transition: background 0.12s;
+}
+
+.agent-flow__agent-filter-option:hover {
+  background: var(--af-bg-hover);
+}
+
+.agent-flow__agent-filter-option--active {
+  color: var(--af-accent);
+  background: var(--af-accent-muted);
+}
+
+/* Drag handle for agent reordering */
+.agent-flow__drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--af-text-tertiary);
+  cursor: grab;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+}
+
+.agent-flow__drag-handle:hover {
+  opacity: 0.8;
+}
+
+/* Drag-over visual feedback */
+.agent-flow__agent-filter-option--drag-over {
+  border-top: 2px solid var(--af-accent);
+  background: var(--af-accent-muted);
+}
+
+/* Dragging state */
+.agent-flow__agent-dragging {
+  opacity: 0.5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* =============================================
+   Resize Handle
+   ============================================= */
+
+.agent-flow__resize-handle {
+  height: 6px;
+  cursor: ns-resize;
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.15s;
+}
+
+.agent-flow__resize-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 3px;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.agent-flow--dark .agent-flow__resize-handle::after {
+  background: #3d4060;
+}
+
+.agent-flow--light .agent-flow__resize-handle::after {
+  background: #c5c9d3;
+}
+
+.agent-flow__resize-handle:hover::after {
+  opacity: 1;
+}
+
+.agent-flow--dark .agent-flow__resize-handle:hover {
+  background: rgba(110, 139, 250, 0.08);
+}
+
+.agent-flow--light .agent-flow__resize-handle:hover {
+  background: rgba(79, 110, 247, 0.04);
+}
+
+/* =============================================
+   Compact View Mode
+   ============================================= */
+
+.agent-flow--compact {
+  font-size: 12px;
+}
+
+.agent-flow--compact .agent-flow__event-row {
+  padding-bottom: 2px;
+}
+
+/* List view compact: reduced padding, hide badges and timestamps */
+.agent-flow--compact .agent-flow__event {
+  padding: 4px 8px;
+  gap: 6px;
+}
+
+.agent-flow--compact .agent-flow__event-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.agent-flow--compact .agent-flow__event-icon svg {
+  width: 11px;
+  height: 11px;
+}
+
+.agent-flow--compact .agent-flow__event-header {
+  gap: 4px;
+}
+
+.agent-flow--compact .agent-flow__event-type {
+  font-size: 9.5px;
+}
+
+.agent-flow--compact .agent-flow__event-time {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__agent-badge-wrapper,
+.agent-flow--compact .agent-flow__agent-badge {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__duration,
+.agent-flow--compact .agent-flow__duration-bar {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__event-message {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.agent-flow--compact .agent-flow__bookmark-btn {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__pin-btn {
+  display: none;
+}
+
+/* Hide tool details in compact mode */
+.agent-flow--compact .agent-flow__event-tool {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__event-result {
+  display: none;
+}
+
+/* Timeline view compact */
+.agent-flow--compact .agent-flow__timeline-item {
+  min-height: 28px;
+}
+
+.agent-flow--compact .agent-flow__timeline-track {
+  width: 24px;
+}
+
+.agent-flow--compact .agent-flow__timeline-dot {
+  width: 6px;
+  height: 6px;
+  margin-top: 10px;
+}
+
+.agent-flow--compact .agent-flow__timeline-body {
+  padding: 3px 8px 4px 0;
+}
+
+.agent-flow--compact .agent-flow__timeline-header {
+  min-height: 22px;
+  gap: 5px;
+}
+
+.agent-flow--compact .agent-flow__timeline-header .agent-flow__event-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.agent-flow--compact .agent-flow__timeline-header .agent-flow__event-icon svg {
+  width: 10px;
+  height: 10px;
+}
+
+.agent-flow--compact .agent-flow__timeline-label {
+  font-size: 9px;
+}
+
+.agent-flow--compact .agent-flow__timeline-summary {
+  font-size: 11px;
+}
+
+.agent-flow--compact .agent-flow__timeline-detail {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__timeline-chevron {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__duration-bar {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__event-time {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__detail-btn {
+  display: none;
+}
+
+.agent-flow--compact .agent-flow__bookmark-btn {
+  display: none;
+}
+
+/* =============================================
+   Context Menu
+   ============================================= */
+
+.agent-flow__context-menu {
+  position: fixed;
+  min-width: 180px;
+  padding: 4px;
+  border-radius: var(--af-radius-sm);
+  z-index: 40;
+  animation: context-menu-in 0.1s ease;
+  backface-visibility: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes context-menu-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.agent-flow__context-menu--dark {
+  background: var(--af-bg-raised);
+  border: 1px solid var(--af-border);
+}
+
+.agent-flow__context-menu--light {
+  background: var(--af-bg);
+  border: 1px solid var(--af-border);
+}
+
+.agent-flow__context-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--af-font);
+  text-align: left;
+  color: var(--af-text);
+  background: transparent;
+  transition: background 0.1s;
+  white-space: nowrap;
+}
+
+.agent-flow__context-menu-item:hover {
+  background: var(--af-bg-hover);
+}
+
+.agent-flow__context-menu-separator {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--af-border);
+}
+
+/* =============================================
+   JSON Syntax Highlighting
+   ============================================= */
+
+/* Keys (amber) */
+.af-syn--key {
+  color: #f59e0b;
+}
+
+/* String values (green) */
+.af-syn--string {
+  color: #10b981;
+}
+
+/* Number values (blue) */
+.af-syn--num {
+  color: #3b82f6;
+}
+
+/* Boolean values (purple) */
+.af-syn--bool {
+  color: #8b5cf6;
+}
+
+/* Null value (gray) */
+.af-syn--null {
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* =============================================
+   Waterfall View
+   ============================================= */
+
+.agent-flow__events--waterfall {
+  padding: 0;
+  overflow-x: auto;
+}
+
+.agent-flow__waterfall {
+  min-width: 600px;
+  padding: 12px 16px;
+}
+
+/* Time axis */
+.agent-flow__waterfall-axis {
+  position: relative;
+  height: 28px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--af-border);
+}
+
+.agent-flow__waterfall-tick {
+  position: absolute;
+  bottom: 4px;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-family: var(--af-mono);
+  color: var(--af-text-tertiary);
+  white-space: nowrap;
+}
+
+.agent-flow__waterfall-tick::before {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  width: 1px;
+  height: 6px;
+  background: var(--af-border);
+}
+
+/* Waterfall bars container */
+.agent-flow__waterfall-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Single waterfall row */
+.agent-flow__waterfall-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  min-width: 0;
+}
+
+.agent-flow__waterfall-row-label {
+  flex-shrink: 0;
+  width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-family: var(--af-mono);
+  color: var(--af-text-secondary);
+  text-align: right;
+  padding-right: 8px;
+}
+
+/* Track (bar area) */
+.agent-flow__waterfall-row-track {
+  flex: 1;
+  position: relative;
+  height: 100%;
+  min-width: 0;
+}
+
+.agent-flow--dark .agent-flow__waterfall-row-track {
+  background: var(--af-surface);
+  border-radius: 3px;
+}
+
+.agent-flow--light .agent-flow__waterfall-row-track {
+  background: var(--af-surface);
+  border-radius: 3px;
+}
+
+/* Individual bar */
+.agent-flow__waterfall-bar {
+  position: absolute;
+  top: 2px;
+  height: calc(100% - 4px);
+  min-width: 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.15s, filter 0.15s;
+}
+
+.agent-flow__waterfall-bar:hover {
+  filter: brightness(1.2);
+}
+
+.agent-flow__waterfall-bar--highlight {
+  outline: 2px solid var(--af-accent);
+  outline-offset: 1px;
+}
+
+.agent-flow__waterfall-bar-fill {
+  position: absolute;
+  inset: 0;
+  opacity: 0.8;
+  border-radius: 3px;
+}
+
+.agent-flow__waterfall-bar-label {
+  position: relative;
+  z-index: 1;
+  padding: 0 6px;
+  font-size: 10px;
+  font-family: var(--af-mono);
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.agent-flow__waterfall-bar-duration {
+  opacity: 0.8;
+  font-size: 9px;
+}
+
+/* =============================================
+   Mobile Responsive Layout (< 768px)
+   ============================================= */
+
+@media (max-width: 767px) {
+  .agent-flow {
+    font-size: 12.5px;
+    border-radius: 0;
+    --af-radius: 6px;
+    --af-radius-sm: 4px;
+  }
+
+  /* Stack header vertically */
+  .agent-flow__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .agent-flow__header-left {
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .agent-flow__header-right {
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  /* Touch-friendly: larger tap targets (min 44px) */
+  .agent-flow__header-btn,
+  .agent-flow__search-toggle,
+  .agent-flow__export-toggle,
+  .agent-flow__agent-filter-toggle,
+  .agent-flow__connect-btn,
+  .agent-flow__jump-error-btn {
+    min-width: 44px;
+    min-height: 44px;
+    height: auto;
+    padding: 8px 10px;
+  }
+
+  .agent-flow__bookmark-btn {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+    opacity: 0.7;
+  }
+
+  .agent-flow__copy-btn {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+    opacity: 0.6;
+  }
+
+  .agent-flow__search-close {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .agent-flow__tool-toggle {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 8px;
+  }
+
+  .agent-flow__detail-btn {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+    opacity: 0.7;
+  }
+
+  .agent-flow__modal-copy,
+  .agent-flow__modal-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Reduced font sizes */
+  .agent-flow__status {
+    font-size: 10.5px;
+  }
+
+  .agent-flow__event-count {
+    font-size: 10.5px;
+  }
+
+  .agent-flow__event-type {
+    font-size: 10px;
+  }
+
+  .agent-flow__event-time {
+    font-size: 10px;
+  }
+
+  .agent-flow__event-message {
+    font-size: 12px;
+  }
+
+  .agent-flow__cost,
+  .agent-flow__tokens {
+    font-size: 10px;
+  }
+
+  .agent-flow__type-label {
+    font-size: 10px;
+  }
+
+  .agent-flow__stats-label {
+    font-size: 10px;
+  }
+
+  .agent-flow__stats-value {
+    font-size: 11px;
+  }
+
+  /* Full-width event cards */
+  .agent-flow__event {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .agent-flow__events {
+    padding: 8px;
+  }
+
+  /* Hide less-essential elements on mobile */
+  .agent-flow__bookmark-count {
+    display: none;
+  }
+
+  .agent-flow__duration-bar {
+    display: none;
+  }
+
+  .agent-flow__agent-badge-wrapper {
+    display: none;
+  }
+
+  .agent-flow__status-detail-label {
+    width: 60px;
+  }
+
+  /* Search bar adjustments */
+  .agent-flow__search-bar {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .agent-flow__search-input {
+    font-size: 14px; /* prevent iOS zoom on focus */
+  }
+
+  /* Time filter adjustments */
+  .agent-flow__time-filter {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 10px;
+  }
+
+  .agent-flow__time-input {
+    flex: 1;
+    min-width: 120px;
+    font-size: 14px; /* prevent iOS zoom */
+  }
+
+  /* Type filter wrapping */
+  .agent-flow__type-filter {
+    padding: 6px 10px;
+    gap: 2px 8px;
+  }
+
+  /* Stats panel */
+  .agent-flow__stats {
+    padding: 6px 10px;
+  }
+
+  /* Modals: use more screen space */
+  .agent-flow__modal {
+    width: 96%;
+    max-height: 90vh;
+  }
+
+  .agent-flow__help-modal {
+    width: 96%;
+  }
+
+  .agent-flow__modal-content {
+    font-size: 11px;
+  }
+
+  /* Scroll controls: larger touch targets */
+  .agent-flow__auto-scroll-btn,
+  .agent-flow__scroll-bottom {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Group header */
+  .agent-flow__group-header {
+    padding: 10px 12px;
+  }
+
+  /* Timeline adjustments */
+  .agent-flow--timeline .agent-flow__events {
+    padding: 6px 8px 6px 2px;
+  }
+
+  .agent-flow__timeline-track {
+    width: 28px;
+  }
+
+  .agent-flow__timeline-body {
+    padding: 4px 8px 6px 0;
+  }
+
+  .agent-flow__timeline-summary {
+    font-size: 11.5px;
+  }
+
+  /* Context menu: full-width on mobile */
+  .agent-flow__context-menu {
+    left: 8px !important;
+    right: 8px;
+    min-width: auto;
+    width: calc(100vw - 16px);
+  }
+
+  .agent-flow__context-menu-item {
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+
+  /* Agent filter dropdown */
+  .agent-flow__agent-filter-dropdown {
+    min-width: 140px;
+  }
+
+  .agent-flow__agent-filter-option {
+    padding: 10px 8px;
+  }
+
+  /* Export dropdown */
+  .agent-flow__export-dropdown {
+    min-width: 120px;
+  }
+
+  .agent-flow__export-option {
+    padding: 12px;
+    font-size: 14px;
+  }
+
+  /* Status dropdown */
+  .agent-flow__status-dropdown {
+    min-width: 220px;
+    left: -8px;
+  }
+}
+
+/* =============================================
+   Swipe-to-dismiss gesture indicator
+   ============================================= */
+
+.agent-flow__swipe-hint {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 1;
+}
+
+.agent-flow__swipe-hint--left {
+  left: 0;
+  background: linear-gradient(to right, rgba(239, 68, 68, 0.3), transparent);
+}
+
+.agent-flow__swipe-hint--right {
+  right: 0;
+  background: linear-gradient(to left, rgba(59, 130, 246, 0.3), transparent);
+}
+
+.agent-flow__event-row--swiping {
+  transition: transform 0.1s ease-out;
+}
+
+/* Touch feedback */
+@media (hover: none) and (pointer: coarse) {
+  .agent-flow__header-btn:active,
+  .agent-flow__search-toggle:active,
+  .agent-flow__export-toggle:active,
+  .agent-flow__agent-filter-toggle:active,
+  .agent-flow__connect-btn:active,
+  .agent-flow__bookmark-btn:active,
+  .agent-flow__copy-btn:active,
+  .agent-flow__context-menu-item:active,
+  .agent-flow__export-option:active {
+    opacity: 0.7;
+    transform: scale(0.97);
+  }
+
+  /* Disable hover effects on touch devices */
+  .agent-flow__event:hover {
+    border-color: transparent;
+  }
+
+  .agent-flow--dark .agent-flow__event:hover {
+    background: var(--af-surface);
+  }
+
+  .agent-flow--light .agent-flow__event:hover {
+    background: var(--af-surface);
+  }
+
+  /* Show buttons by default on touch (no hover to reveal) */
+  .agent-flow__bookmark-btn,
+  .agent-flow__copy-btn,
+  .agent-flow__detail-btn {
+    opacity: 0.5;
+  }
 }

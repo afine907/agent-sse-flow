@@ -59,9 +59,39 @@ function App() {
 | `maxReconnectAttempts` | `number` | `10` | Maximum reconnect attempts before giving up |
 | `className` | `string` | - | Custom CSS class name |
 | `style` | `React.CSSProperties` | - | Custom inline style object |
+| `customTheme` | `Record<string, string>` | - | CSS variable overrides (e.g. `{'--af-accent': '#ff6b6b'}`) |
 | `searchKey` | `string` | `'k'` | Keyboard shortcut key for search (used with Ctrl/Cmd) |
 | `renderMessage` | `(message: string) => ReactNode` | - | Custom renderer for event messages (overrides default markdown) |
 | `renderResult` | `(result: string) => ReactNode` | - | Custom renderer for tool results (overrides default markdown) |
+
+## CSS Variables
+
+Override any of these CSS variables via the `customTheme` prop:
+
+| Variable | Dark Default | Light Default | Description |
+|----------|-------------|---------------|-------------|
+| `--af-bg` | `#0f1117` | `#ffffff` | Main background |
+| `--af-bg-raised` | `#161822` | `#f8f9fb` | Raised surfaces (header, cards) |
+| `--af-bg-hover` | `#1c1f2e` | `#f0f1f5` | Hover state background |
+| `--af-surface` | `#1e2133` | `#f4f5f7` | Event card background |
+| `--af-border` | `#2a2d3e` | `#e2e4ea` | Primary border color |
+| `--af-border-subtle` | `#222538` | `#ecedf1` | Subtle border color |
+| `--af-text` | `#e2e4ed` | `#1a1d2e` | Primary text |
+| `--af-text-secondary` | `#8b8fa4` | `#6b7085` | Secondary text |
+| `--af-text-tertiary` | `#5c6078` | `#9ca0b3` | Tertiary text |
+| `--af-accent` | `#6e8bfa` | `#4f6ef7` | Accent color (buttons, highlights) |
+| `--af-accent-muted` | `rgba(110,139,250,0.12)` | `rgba(79,110,247,0.08)` | Muted accent background |
+| `--af-font` | (system) | (system) | Font family |
+| `--af-mono` | (monospace) | (monospace) | Monospace font family |
+| `--af-radius` | `10px` | `10px` | Large border radius |
+| `--af-radius-sm` | `6px` | `6px` | Small border radius |
+
+```tsx
+<AgentFlow
+  url="http://localhost:8080/agent/stream"
+  customTheme={{ '--af-accent': '#ff6b6b', '--af-bg': '#1a1a2e' }}
+/>
+```
 
 ## SSE Event Format
 

@@ -11,14 +11,17 @@ import { useState, useCallback, useRef, useEffect, useMemo, memo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import './AgentFlow.css';
 
-import type { AgentFlowProps, FlowEvent, EventType } from './types';
+import type { AgentFlowProps, FlowEvent, EventType, ViewMode } from './types';
 import { useVisibleRows } from './useVisibleRows';
+import { createT } from './i18n';
+import { playErrorSound, playConnectedSound, playDisconnectedSound, playSearchCompleteSound } from './sounds';
 
 /** A virtual list item: either a group header or an event */
 interface GroupHeaderItem {
   kind: 'header';
   agentName: string;
   agentColor: string | undefined;
+  agentAvatar: string | undefined;
   count: number;
   key: string;
 }
@@ -31,8 +34,8 @@ interface EventItem {
 
 type VirtualListItem = GroupHeaderItem | EventItem;
 import { useSSE } from './useSSE';
-import { EventRow, TimelineRow } from './EventRow';
-import { exportToJSON, exportToCSV, copyToClipboard, EVENT_DOT_COLORS } from './utils';
+import { EventRow, TimelineRow, AgentAvatar, WaterfallBar } from './EventRow';
+import { exportToJSON, exportToCSV, copyToClipboard, generateCurlCommand, EVENT_DOT_COLORS, formatTime } from './utils';
 
 // Note: AgentFlowProps, EventRow, TimelineRow, useSSE are exported from index.ts
 // This avoids duplicate re-exports that could interfere with tree-shaking
@@ -68,7 +71,7 @@ const MemoizedEventRow = memo(function MemoizedEventRow({
   relativeTime: boolean;
   renderMessage?: (message: string) => React.ReactNode;
   renderResult?: (result: string) => React.ReactNode;
-  viewMode: 'list' | 'timeline';
+  viewMode: ViewMode;
   onToggleCollapse: (id: number) => void;
   onToggleArgs: (id: number) => void;
   onToggleBookmark: (id: number) => void;
@@ -142,7 +145,11 @@ export function AgentFlow({
   maxReconnectAttempts = 10,
   className,
   style,
+  customTheme,
+  locale = 'en',
+  enableSounds = false,
 }: AgentFlowProps) {
+  const t = useMemo(() => createT(locale), [locale]);
   const {
     filteredEvents,
     status,
@@ -178,11 +185,28 @@ export function AgentFlow({
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
   const [groupByAgent, setGroupByAgent] = useState(false);
   const [collapsedAgentGroups, setCollapsedAgentGroups] = useState<Set<string>>(new Set());
+  const [compact, setCompact] = useState(false);
+  const [agentOrder, setAgentOrder] = useState<string[]>([]);
+  const [dragOverAgent, setDragOverAgent] = useState<string | null>(null);
+  const dragAgentRef = useRef<string | null>(null);
+  // Merge customTheme CSS variable overrides with the user-supplied style prop
+  const mergedStyle = useMemo(
+    () => (customTheme ? { ...style, ...customTheme } : style),
+    [style, customTheme],
+  );
+
   const parentRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [agentFilterOpen, setAgentFilterOpen] = useState(false);
+  const agentFilterRef = useRef<HTMLDivElement>(null);
+  const [componentHeight, setComponentHeight] = useState<number | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const isResizing = useRef(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; event: FlowEvent } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   // Search filter
   const searchFilteredEvents = useMemo(() => {
@@ -224,6 +248,17 @@ export function AgentFlow({
     return counts;
   }, [filteredEvents]);
 
+  // Map of agent name -> { avatar, color } for the filter dropdown
+  const agentInfoMap = useMemo(() => {
+    const map = new Map<string, { avatar?: string; color?: string }>();
+    for (const e of filteredEvents) {
+      if (e.agentName && !map.has(e.agentName)) {
+        map.set(e.agentName, { avatar: e.agentAvatar, color: e.agentColor });
+      }
+    }
+    return map;
+  }, [filteredEvents]);
+
   // Toggle event type filter
   const toggleEventType = useCallback((type: EventType) => {
     setEnabledTypes(prev => {
@@ -260,9 +295,65 @@ export function AgentFlow({
     });
   }, []);
 
+  // Sync agentOrder when new agents appear
+  const orderedAgents = useMemo(() => {
+    const known = stats.agents;
+    if (agentOrder.length === 0) return known;
+    // Merge: keep existing order, append new agents at the end
+    const seen = new Set(agentOrder);
+    const merged = [...agentOrder.filter(a => known.includes(a))];
+    for (const a of known) {
+      if (!seen.has(a)) merged.push(a);
+    }
+    return merged;
+  }, [stats.agents, agentOrder]);
+
+  // Drag handlers for agent reordering
+  const handleDragStart = useCallback((agent: string, e: React.DragEvent) => {
+    dragAgentRef.current = agent;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', agent);
+    const el = e.currentTarget as HTMLElement;
+    el.classList.add('agent-flow__agent-dragging');
+  }, []);
+
+  const handleDragOver = useCallback((agent: string, e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverAgent(agent);
+  }, []);
+
+  const handleDrop = useCallback((targetAgent: string, e: React.DragEvent) => {
+    e.preventDefault();
+    const sourceAgent = dragAgentRef.current;
+    if (!sourceAgent || sourceAgent === targetAgent) {
+      setDragOverAgent(null);
+      return;
+    }
+    setAgentOrder(prev => {
+      const current = prev.length > 0 ? [...prev] : [...orderedAgents];
+      const fromIdx = current.indexOf(sourceAgent);
+      const toIdx = current.indexOf(targetAgent);
+      if (fromIdx === -1 || toIdx === -1) return prev.length > 0 ? prev : [];
+      current.splice(fromIdx, 1);
+      current.splice(toIdx, 0, sourceAgent);
+      return current;
+    });
+    setDragOverAgent(null);
+    dragAgentRef.current = null;
+  }, [orderedAgents]);
+
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    (e.currentTarget as HTMLElement).classList.remove('agent-flow__agent-dragging');
+    setDragOverAgent(null);
+    dragAgentRef.current = null;
+  }, []);
+
   // Build virtual list items (grouped or flat)
   const virtualListItems = useMemo((): VirtualListItem[] => {
-    if (!groupByAgent || viewMode === 'timeline') return bookmarkFilteredEvents.map(e => ({ kind: 'event' as const, event: e, key: e.id }));
+    if (!groupByAgent || viewMode === 'timeline' || viewMode === 'waterfall') {
+      return bookmarkFilteredEvents.map(e => ({ kind: 'event' as const, event: e, key: e.id }));
+    }
 
     // Group events by agent name, preserving order
     const groups = new Map<string, FlowEvent[]>();
@@ -276,6 +367,20 @@ export function AgentFlow({
       groups.get(name)!.push(e);
     }
 
+    // Apply user-defined agent order if set
+    if (orderedAgents.length > 0 && agentOrder.length > 0) {
+      const reordered: string[] = [];
+      for (const a of orderedAgents) {
+        if (groups.has(a)) reordered.push(a);
+      }
+      // Append any agents not in orderedAgents (e.g. new ones that appeared)
+      for (const name of groupOrder) {
+        if (!reordered.includes(name)) reordered.push(name);
+      }
+      groupOrder.length = 0;
+      groupOrder.push(...reordered);
+    }
+
     // If only one group (or none), don't bother grouping
     if (groupOrder.length <= 1) {
       return bookmarkFilteredEvents.map(e => ({ kind: 'event' as const, event: e, key: e.id }));
@@ -285,7 +390,8 @@ export function AgentFlow({
     for (const name of groupOrder) {
       const events = groups.get(name)!;
       const agentColor = events[0]?.agentColor;
-      items.push({ kind: 'header', agentName: name, agentColor, count: events.length, key: `group-${name}` });
+      const agentAvatar = events[0]?.agentAvatar;
+      items.push({ kind: 'header', agentName: name, agentColor, agentAvatar, count: events.length, key: `group-${name}` });
       if (!collapsedAgentGroups.has(name)) {
         for (const e of events) {
           items.push({ kind: 'event', event: e, key: e.id });
@@ -293,7 +399,7 @@ export function AgentFlow({
       }
     }
     return items;
-  }, [bookmarkFilteredEvents, groupByAgent, viewMode, collapsedAgentGroups]);
+  }, [bookmarkFilteredEvents, groupByAgent, viewMode, collapsedAgentGroups, orderedAgents, agentOrder]);
 
   // Keyboard shortcut for search, help, and Escape handling
   useEffect(() => {
@@ -352,6 +458,93 @@ export function AgentFlow({
     return () => document.removeEventListener('mousedown', onClick);
   }, [showStatusDetails]);
 
+  // Close agent filter dropdown on outside click
+  useEffect(() => {
+    if (!agentFilterOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (agentFilterRef.current && !agentFilterRef.current.contains(e.target as Node)) {
+        setAgentFilterOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [agentFilterOpen]);
+
+  // Resizable component height via bottom drag handle
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+    const startY = e.clientY;
+    const startHeight = rootRef.current?.offsetHeight ?? 400;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isResizing.current) return;
+      const delta = ev.clientY - startY;
+      const newHeight = Math.max(200, startHeight + delta);
+      setComponentHeight(newHeight);
+    };
+
+    const onMouseUp = () => {
+      isResizing.current = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  // Touch swipe handling for mobile
+  const touchState = useRef<{ startX: number; startY: number }>({
+    startX: 0, startY: 0,
+  });
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchState.current = { startX: touch.clientX, startY: touch.clientY };
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchState.current.startX;
+    const dy = touch.clientY - touchState.current.startY;
+    if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      // Swipe gesture detected
+    }
+    touchState.current = { startX: 0, startY: 0 };
+  }, []);
+
+  // Context menu handler for event rows
+  const handleContextMenu = useCallback((e: React.MouseEvent, event: FlowEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, event });
+  }, []);
+
+  // Close context menu on outside click or scroll
+  useEffect(() => {
+    if (!contextMenu) return;
+    const onClick = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    const onScroll = () => setContextMenu(null);
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setContextMenu(null); };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('scroll', onScroll, true);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('scroll', onScroll, true);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [contextMenu]);
+
   const toggleCollapse = useCallback((id: number) => {
     setCollapsedIds(prev => {
       const next = new Set(prev);
@@ -380,6 +573,7 @@ export function AgentFlow({
     setShowBookmarkedOnly(false);
     setGroupByAgent(false);
     setCollapsedAgentGroups(new Set());
+    setAgentOrder([]);
   }, [clearEvents]);
 
   // Cleanup highlight timer on unmount
@@ -390,6 +584,36 @@ export function AgentFlow({
       }
     };
   }, []);
+
+  // Sound feedback: play on error events
+  useEffect(() => {
+    if (!enableSounds) return;
+    const lastEvent = filteredEvents[filteredEvents.length - 1];
+    if (lastEvent?.type === 'error') {
+      playErrorSound();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredEvents.length, enableSounds]);
+
+  // Sound feedback: play on connection status change
+  useEffect(() => {
+    if (!enableSounds) return;
+    if (status === 'connected') {
+      playConnectedSound();
+    } else if (status === 'disconnected' || status === 'error') {
+      playDisconnectedSound();
+    }
+  }, [status, enableSounds]);
+
+  // Sound feedback: play when search completes with results
+  useEffect(() => {
+    if (!enableSounds || !searchQuery.trim()) return;
+    // Small delay to avoid playing on every keystroke
+    const timer = setTimeout(() => {
+      playSearchCompleteSound();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, enableSounds]);
 
   // Auto-collapse new events in timeline mode
   useEffect(() => {
@@ -471,6 +695,17 @@ export function AgentFlow({
     [virtualizer, measureRef],
   );
 
+  // Waterfall view: compute time range for positioning bars
+  const waterfallTimeRange = useMemo(() => {
+    const eventsWithTime = bookmarkFilteredEvents.filter(e => e.timestamp);
+    if (eventsWithTime.length === 0) return { startTime: 0, totalDuration: 0 };
+    const startTime = eventsWithTime[0].timestamp!;
+    const lastEvent = eventsWithTime[eventsWithTime.length - 1];
+    const endTime = lastEvent.timestamp! + (lastEvent.duration ?? 0);
+    const totalDuration = Math.max(endTime - startTime, 1);
+    return { startTime, totalDuration };
+  }, [bookmarkFilteredEvents]);
+
   // Auto-scroll to bottom when new events arrive (if enabled)
   useEffect(() => {
     if (autoScroll && virtualListItems.length > 0) {
@@ -526,30 +761,37 @@ export function AgentFlow({
   // SSR fallback
   if (!isSupported) {
     return (
-      <div className={`agent-flow agent-flow--${theme} agent-flow--unsupported${className ? ` ${className}` : ''}`} style={style}>
+      <div className={`agent-flow agent-flow--${theme} agent-flow--unsupported${className ? ` ${className}` : ''}`} style={mergedStyle}>
         <div className="agent-flow__header">
           <div className="agent-flow__header-left">
             <span className="agent-flow__status">
               <span className="agent-flow__status-dot agent-flow__status-dot--error" />
-              unsupported
+              {t('status.unsupported')}
             </span>
           </div>
         </div>
         <div className="agent-flow__events-wrapper">
           <div className="agent-flow__empty">
-            EventSource is not supported in this environment.
-            <br />
-            Please use a browser that supports Server-Sent Events.
+            {t('empty.unsupported')}
           </div>
         </div>
       </div>
     );
   }
 
+  const rootStyle = useMemo(
+    () => ({
+      ...mergedStyle,
+      ...(componentHeight !== null ? { height: componentHeight } : {}),
+    }),
+    [mergedStyle, componentHeight],
+  );
+
   return (
     <div
-      className={`agent-flow agent-flow--${theme}${viewMode === 'timeline' ? ' agent-flow--timeline' : ''}${className ? ` ${className}` : ''}`}
-      style={style}
+      ref={rootRef}
+      className={`agent-flow agent-flow--${theme}${viewMode === 'timeline' ? ' agent-flow--timeline' : ''}${compact ? ' agent-flow--compact' : ''}${className ? ` ${className}` : ''}`}
+      style={rootStyle}
     >
       {/* Header */}
       <div className="agent-flow__header">
@@ -558,8 +800,10 @@ export function AgentFlow({
             <button
               className={`agent-flow__status agent-flow__status--clickable${showStatusDetails ? ' agent-flow__status--active' : ''}`}
               onClick={() => setShowStatusDetails(prev => !prev)}
-              title="Connection details"
+              title={t('header.connectionDetails')}
               type="button"
+              aria-label={`Connection status: ${status}`}
+              aria-expanded={showStatusDetails}
             >
               <span className={`agent-flow__status-dot agent-flow__status-dot--${status}`} />
               {status}
@@ -598,12 +842,12 @@ export function AgentFlow({
               </div>
             )}
           </div>
-          <span className="agent-flow__event-count">
-            {hasActiveFilters ? `${bookmarkFilteredEvents.length}/${filteredEvents.length}` : filteredEvents.length} events
+          <span className="agent-flow__event-count" aria-live="polite" aria-label={t('header.eventCount')}>
+            {hasActiveFilters ? `${bookmarkFilteredEvents.length}/${filteredEvents.length}` : filteredEvents.length} {t('header.events')}
           </span>
           {bookmarkedIds.size > 0 && (
             <span className="agent-flow__bookmark-count">
-              {bookmarkedIds.size} bookmarked
+              {bookmarkedIds.size} {t('header.bookmarked')}
             </span>
           )}
           {stats.totalCost > 0 && (
@@ -613,7 +857,7 @@ export function AgentFlow({
             <span className="agent-flow__tokens">{stats.totalTokens.toLocaleString()} tokens</span>
           )}
         </div>
-        <div className="agent-flow__header-right">
+        <div className="agent-flow__header-right" role="toolbar" aria-label="Event controls">
           {/* Bookmark filter toggle */}
           {bookmarkedIds.size > 0 && (
             <button
@@ -621,6 +865,8 @@ export function AgentFlow({
               onClick={() => setShowBookmarkedOnly(prev => !prev)}
               title={showBookmarkedOnly ? 'Show all events' : 'Show bookmarked only'}
               type="button"
+              aria-label={showBookmarkedOnly ? 'Show all events' : 'Show bookmarked only'}
+              aria-pressed={showBookmarkedOnly}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill={showBookmarkedOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -632,8 +878,10 @@ export function AgentFlow({
           <button
             className={`agent-flow__header-btn${showStats ? ' agent-flow__header-btn--active' : ''}`}
             onClick={() => setShowStats(prev => !prev)}
-            title="Toggle event statistics"
+            title={t('header.toggleStats')}
             type="button"
+            aria-label={t('header.toggleStats')}
+            aria-pressed={showStats}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="20" x2="18" y2="10" />
@@ -642,13 +890,31 @@ export function AgentFlow({
             </svg>
           </button>
 
+          {/* Compact view toggle */}
+          <button
+            className={`agent-flow__header-btn${compact ? ' agent-flow__header-btn--active' : ''}`}
+            onClick={() => setCompact(prev => !prev)}
+            title={compact ? t('header.normalView') : t('header.compactView')}
+            type="button"
+            aria-label={compact ? t('header.normalView') : t('header.compactView')}
+            aria-pressed={compact}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="21" y1="10" x2="3" y2="10" />
+              <line x1="21" y1="6" x2="3" y2="6" />
+              <line x1="21" y1="14" x2="3" y2="14" />
+              <line x1="21" y1="18" x2="3" y2="18" />
+            </svg>
+          </button>
+
           {/* Clear events */}
           <button
             className="agent-flow__header-btn"
             onClick={handleClear}
-            title="Clear all events"
+            title={t('header.clearAll')}
             type="button"
             disabled={filteredEvents.length === 0}
+            aria-label={t('header.clearAll')}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="3 6 5 6 21 6" />
@@ -663,8 +929,11 @@ export function AgentFlow({
             <button
               className={`agent-flow__export-toggle${exportOpen ? ' agent-flow__export-toggle--active' : ''}`}
               onClick={() => setExportOpen(prev => !prev)}
-              title="Export events"
+              title={t('header.export')}
               type="button"
+              aria-label={t('header.export')}
+              aria-expanded={exportOpen}
+              aria-haspopup="menu"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
@@ -673,20 +942,24 @@ export function AgentFlow({
               </svg>
             </button>
             {exportOpen && (
-              <div className="agent-flow__export-dropdown">
+              <div className="agent-flow__export-dropdown" role="menu">
                 <button
                   className="agent-flow__export-option"
                   onClick={() => { exportToJSON(typeFilteredEvents); setExportOpen(false); }}
                   type="button"
+                  role="menuitem"
+                  aria-label={t('export.asJSON')}
                 >
-                  Export as JSON
+                  {t('export.asJSON')}
                 </button>
                 <button
                   className="agent-flow__export-option"
                   onClick={() => { exportToCSV(typeFilteredEvents); setExportOpen(false); }}
                   type="button"
+                  role="menuitem"
+                  aria-label={t('export.asCSV')}
                 >
-                  Export as CSV
+                  {t('export.asCSV')}
                 </button>
               </div>
             )}
@@ -696,8 +969,10 @@ export function AgentFlow({
           <button
             className={`agent-flow__header-btn${showHelp ? ' agent-flow__header-btn--active' : ''}`}
             onClick={() => setShowHelp(prev => !prev)}
-            title="Keyboard shortcuts (?)"
+            title={t('header.keyboardShortcuts') + ' (?)'}
             type="button"
+            aria-label={t('header.keyboardShortcuts')}
+            aria-pressed={showHelp}
           >
             ?
           </button>
@@ -709,6 +984,7 @@ export function AgentFlow({
               onClick={jumpToNextError}
               title={`Jump to next error (${errorIndices.length} errors, ${currentErrorNavIndex % errorIndices.length + 1}/${errorIndices.length})`}
               type="button"
+              aria-label={`Jump to next error (${errorIndices.length} errors)`}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -724,8 +1000,10 @@ export function AgentFlow({
               setSearchOpen(prev => !prev);
               if (searchOpen) setSearchQuery('');
             }}
-            title="Search events (Ctrl+K)"
+            title={t('header.searchEvents') + ' (Ctrl+K)'}
             type="button"
+            aria-label={t('header.searchEvents')}
+            aria-pressed={searchOpen}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" />
@@ -737,8 +1015,10 @@ export function AgentFlow({
           <button
             className={`agent-flow__search-toggle${timeFilterOpen || timeFrom || timeTo ? ' agent-flow__search-toggle--active' : ''}`}
             onClick={() => setTimeFilterOpen(prev => !prev)}
-            title="Filter by time range"
+            title={t('header.filterByTime')}
             type="button"
+            aria-label={t('header.filterByTime')}
+            aria-pressed={timeFilterOpen || !!timeFrom || !!timeTo}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
@@ -750,8 +1030,10 @@ export function AgentFlow({
           <button
             className={`agent-flow__header-btn${relativeTime ? ' agent-flow__header-btn--active' : ''}`}
             onClick={() => setRelativeTime(prev => !prev)}
-            title={relativeTime ? 'Showing relative time' : 'Showing absolute time'}
+            title={relativeTime ? t('header.relativeTime') : t('header.absoluteTime')}
             type="button"
+            aria-label={relativeTime ? t('header.relativeTime') : t('header.absoluteTime')}
+            aria-pressed={relativeTime}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
@@ -761,25 +1043,90 @@ export function AgentFlow({
           </button>
 
           {stats.agents.length > 0 && (
-            <select
-              className="agent-flow__agent-filter"
-              value={selectedAgent || ''}
-              onChange={(e) => setSelectedAgent(e.target.value || null)}
-            >
-              <option value="">All Agents</option>
-              {stats.agents.map((agent: string) => (
-                <option key={agent} value={agent}>{agent}</option>
-              ))}
-            </select>
+            <div className="agent-flow__agent-filter" ref={agentFilterRef}>
+              <button
+                className={`agent-flow__agent-filter-toggle${agentFilterOpen ? ' agent-flow__agent-filter-toggle--active' : ''}`}
+                onClick={() => setAgentFilterOpen(prev => !prev)}
+                type="button"
+                aria-label={selectedAgent ? `${t('action.filterByAgent')}: ${selectedAgent}` : t('header.allAgents')}
+                aria-expanded={agentFilterOpen}
+                aria-haspopup="listbox"
+              >
+                {selectedAgent ? (
+                  <span className="agent-flow__agent-filter-selected">
+                    <AgentAvatar
+                      avatar={agentInfoMap.get(selectedAgent)?.avatar}
+                      name={selectedAgent}
+                      color={agentInfoMap.get(selectedAgent)?.color}
+                      size={14}
+                    />
+                    {selectedAgent}
+                  </span>
+                ) : (
+                  'All Agents'
+                )}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+              {agentFilterOpen && (
+                <div className="agent-flow__agent-filter-dropdown" role="listbox" aria-label="Select agent filter">
+                  <button
+                    className={`agent-flow__agent-filter-option${!selectedAgent ? ' agent-flow__agent-filter-option--active' : ''}`}
+                    onClick={() => { setSelectedAgent(null); setAgentFilterOpen(false); }}
+                    type="button"
+                  >
+                    All Agents
+                  </button>
+                  {orderedAgents.map((agent: string) => {
+                    const info = agentInfoMap.get(agent);
+                    return (
+                      <div
+                        key={agent}
+                        className={`agent-flow__agent-filter-option${selectedAgent === agent ? ' agent-flow__agent-filter-option--active' : ''}${dragOverAgent === agent ? ' agent-flow__agent-filter-option--drag-over' : ''}`}
+                        draggable
+                        onDragStart={(e) => handleDragStart(agent, e)}
+                        onDragOver={(e) => handleDragOver(agent, e)}
+                        onDrop={(e) => handleDrop(agent, e)}
+                        onDragEnd={handleDragEnd}
+                        onClick={() => { setSelectedAgent(agent); setAgentFilterOpen(false); }}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <span className="agent-flow__drag-handle" title="Drag to reorder">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="8" cy="4" r="2" />
+                            <circle cx="16" cy="4" r="2" />
+                            <circle cx="8" cy="12" r="2" />
+                            <circle cx="16" cy="12" r="2" />
+                            <circle cx="8" cy="20" r="2" />
+                            <circle cx="16" cy="20" r="2" />
+                          </svg>
+                        </span>
+                        <AgentAvatar
+                          avatar={info?.avatar}
+                          name={agent}
+                          color={info?.color}
+                          size={16}
+                        />
+                        {agent}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Group by agent toggle (only shown when multiple agents exist and in list view) */}
-          {stats.agents.length > 1 && viewMode === 'list' && (
+          {stats.agents.length > 1 && (viewMode === 'list' || viewMode === 'waterfall') && (
             <button
               className={`agent-flow__header-btn${groupByAgent ? ' agent-flow__header-btn--active' : ''}`}
               onClick={() => setGroupByAgent(prev => !prev)}
-              title={groupByAgent ? 'Show flat list' : 'Group by agent'}
+              title={groupByAgent ? t('header.flatList') : t('header.groupByAgent')}
               type="button"
+              aria-label={groupByAgent ? t('header.flatList') : t('header.groupByAgent')}
+              aria-pressed={groupByAgent}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="7" height="7" />
@@ -791,13 +1138,13 @@ export function AgentFlow({
           )}
 
           {status === 'connected' && (
-            <button className="agent-flow__connect-btn" onClick={disconnect} type="button">
-              Disconnect
+            <button className="agent-flow__connect-btn" onClick={disconnect} type="button" aria-label={t('header.disconnect')}>
+              {t('header.disconnect')}
             </button>
           )}
           {status === 'disconnected' && (
-            <button className="agent-flow__connect-btn" onClick={connect} type="button">
-              Connect
+            <button className="agent-flow__connect-btn" onClick={connect} type="button" aria-label={t('header.connect')}>
+              {t('header.connect')}
             </button>
           )}
         </div>
@@ -805,7 +1152,7 @@ export function AgentFlow({
 
       {/* Search bar */}
       {searchOpen && (
-        <div className="agent-flow__search-bar">
+        <div className="agent-flow__search-bar" role="search" aria-label="Search events">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" />
             <path d="M21 21l-4.35-4.35" />
@@ -814,19 +1161,21 @@ export function AgentFlow({
             ref={searchInputRef}
             type="text"
             className="agent-flow__search-input"
-            placeholder="Search events..."
+            placeholder={t('search.placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label={t('header.searchEvents')}
           />
           {searchQuery && (
-            <span className="agent-flow__search-count">
-              {typeFilteredEvents.length} matches
+            <span className="agent-flow__search-count" aria-live="polite">
+              {typeFilteredEvents.length} {t('search.matches')}
             </span>
           )}
           <button
             className="agent-flow__search-close"
             onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
             type="button"
+            aria-label={t('search.closeSearch')}
           >
             ✕
           </button>
@@ -835,42 +1184,46 @@ export function AgentFlow({
 
       {/* Time range filter bar */}
       {(timeFilterOpen || timeFrom || timeTo) && (
-        <div className="agent-flow__time-filter">
-          <span className="agent-flow__time-filter-label">Time range:</span>
+        <div className="agent-flow__time-filter" role="group" aria-label="Time range filter">
+          <span className="agent-flow__time-filter-label">{t('timeFilter.label')}</span>
           <input
             type="datetime-local"
             className="agent-flow__time-input"
             value={timeFrom}
             onChange={(e) => setTimeFrom(e.target.value)}
-            placeholder="From"
+            placeholder={t('timeFilter.from')}
+            aria-label={t('timeFilter.from')}
           />
-          <span className="agent-flow__time-filter-sep">to</span>
+          <span className="agent-flow__time-filter-sep">{t('generic.to')}</span>
           <input
             type="datetime-local"
             className="agent-flow__time-input"
             value={timeTo}
             onChange={(e) => setTimeTo(e.target.value)}
-            placeholder="To"
+            placeholder={t('timeFilter.to')}
+            aria-label={t('timeFilter.to')}
           />
           <button
             className="agent-flow__time-filter-clear"
             onClick={() => { setTimeFrom(''); setTimeTo(''); }}
-            title="Clear time filter"
+            title={t('timeFilter.clear')}
             type="button"
+            aria-label={t('timeFilter.clear')}
           >
-            Clear
+            {t('timeFilter.clear')}
           </button>
         </div>
       )}
 
       {/* Event type filter checkboxes */}
-      <div className="agent-flow__type-filter">
+      <div className="agent-flow__type-filter" role="group" aria-label="Event type filters">
         {ALL_EVENT_TYPES.map(type => (
           <label key={type} className="agent-flow__type-checkbox">
             <input
               type="checkbox"
               checked={enabledTypes.has(type)}
               onChange={() => toggleEventType(type)}
+              aria-label={`Filter ${type} events`}
             />
             <span
               className="agent-flow__type-label"
@@ -887,7 +1240,7 @@ export function AgentFlow({
         <div className="agent-flow__stats">
           <div className="agent-flow__stats-row">
             <span className="agent-flow__stats-item">
-              <span className="agent-flow__stats-label">Total</span>
+              <span className="agent-flow__stats-label">{t('stats.total')}</span>
               <span className="agent-flow__stats-value">{filteredEvents.length}</span>
             </span>
             {ALL_EVENT_TYPES.map(type => (
@@ -899,19 +1252,19 @@ export function AgentFlow({
             ))}
             {stats.totalCost > 0 && (
               <span className="agent-flow__stats-item">
-                <span className="agent-flow__stats-label">Cost</span>
+                <span className="agent-flow__stats-label">{t('stats.cost')}</span>
                 <span className="agent-flow__stats-value">${stats.totalCost.toFixed(4)}</span>
               </span>
             )}
             {stats.totalTokens > 0 && (
               <span className="agent-flow__stats-item">
-                <span className="agent-flow__stats-label">Tokens</span>
+                <span className="agent-flow__stats-label">{t('stats.tokens')}</span>
                 <span className="agent-flow__stats-value">{stats.totalTokens.toLocaleString()}</span>
               </span>
             )}
             {stats.agents.length > 0 && (
               <span className="agent-flow__stats-item">
-                <span className="agent-flow__stats-label">Agents</span>
+                <span className="agent-flow__stats-label">{t('stats.agents')}</span>
                 <span className="agent-flow__stats-value">{stats.agents.length}</span>
               </span>
             )}
@@ -921,10 +1274,57 @@ export function AgentFlow({
 
       {/* Events (virtualized) */}
       <div className="agent-flow__events-wrapper">
-        <div ref={parentRef} className="agent-flow__events">
-          {virtualListItems.length === 0 ? (
+        <div ref={parentRef} className={`agent-flow__events${viewMode === 'waterfall' ? ' agent-flow__events--waterfall' : ''}`} role="log" aria-label="Event stream" aria-live="polite">
+          {viewMode === 'waterfall' ? (
+            bookmarkFilteredEvents.length === 0 ? (
+              <div className="agent-flow__empty">
+                {hasActiveFilters ? t('empty.noMatching') : t('empty.noEvents')}
+              </div>
+            ) : (
+              <div className="agent-flow__waterfall">
+                {/* Time axis */}
+                <div className="agent-flow__waterfall-axis">
+                  {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
+                    const ms = Math.round(waterfallTimeRange.startTime + waterfallTimeRange.totalDuration * pct);
+                    return (
+                      <span
+                        key={pct}
+                        className="agent-flow__waterfall-tick"
+                        style={{ left: `${pct * 100}%` }}
+                      >
+                        {formatTime(ms)}
+                      </span>
+                    );
+                  })}
+                </div>
+                {/* Waterfall bars */}
+                <div className="agent-flow__waterfall-bars">
+                  {bookmarkFilteredEvents.map((event) => (
+                    <div
+                      key={event.id}
+                      className="agent-flow__waterfall-row"
+                      onContextMenu={(e) => handleContextMenu(e, event)}
+                    >
+                      <span className="agent-flow__waterfall-row-label" title={event.tool || event.type}>
+                        {event.tool || event.type}
+                      </span>
+                      <div className="agent-flow__waterfall-row-track">
+                        <WaterfallBar
+                          event={event}
+                          startTime={waterfallTimeRange.startTime}
+                          totalDuration={waterfallTimeRange.totalDuration}
+                          onClick={setSelectedEvent}
+                          highlighted={highlightedEventId === event.id}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          ) : virtualListItems.length === 0 ? (
             <div className="agent-flow__empty">
-              {hasActiveFilters ? 'No matching events' : 'No events yet. Waiting for agent...'}
+              {hasActiveFilters ? t('empty.noMatching') : t('empty.noEvents')}
             </div>
           ) : (
             <div
@@ -955,10 +1355,14 @@ export function AgentFlow({
                         className="agent-flow__group-header"
                         onClick={() => toggleAgentGroup(item.agentName)}
                         type="button"
+                        aria-expanded={!collapsedAgentGroups.has(item.agentName)}
+                        aria-label={`${item.agentName} agent group (${item.count} events)`}
                       >
-                        <span
-                          className="agent-flow__group-dot"
-                          style={{ background: item.agentColor || 'var(--af-accent)' }}
+                        <AgentAvatar
+                          avatar={item.agentAvatar}
+                          name={item.agentName}
+                          color={item.agentColor}
+                          size={20}
                         />
                         <span className="agent-flow__group-name">{item.agentName}</span>
                         <span className="agent-flow__group-count">{item.count}</span>
@@ -971,6 +1375,7 @@ export function AgentFlow({
                     </div>
                   );
                 }
+
 
                 // Render event — full content only when the row has been
                 // scrolled into the viewport; otherwise render a lightweight
@@ -990,6 +1395,9 @@ export function AgentFlow({
                     }}
                     data-index={virtualRow.index}
                     ref={rowRef}
+                    onContextMenu={(e) => handleContextMenu(e, event)}
+                    onTouchStart={handleTouchStart}
+                    onTouchEnd={handleTouchEnd}
                   >
                     {visible ? (
                       <MemoizedEventRow
@@ -1016,13 +1424,15 @@ export function AgentFlow({
             </div>
           )}
         </div>
-        {virtualListItems.length > 0 && (
+        {virtualListItems.length > 0 && viewMode !== 'waterfall' && (
           <div className="agent-flow__scroll-controls">
             <button
               className={`agent-flow__auto-scroll-btn${autoScroll ? ' agent-flow__auto-scroll-btn--active' : ''}`}
               onClick={() => setAutoScroll(prev => !prev)}
-              title={autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF'}
+              title={autoScroll ? t('scroll.autoScrollOn') : t('scroll.autoScrollOff')}
               type="button"
+              aria-label={autoScroll ? t('scroll.autoScrollOff') : t('scroll.autoScrollOn')}
+              aria-pressed={autoScroll}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 {autoScroll ? (
@@ -1037,7 +1447,7 @@ export function AgentFlow({
               </svg>
             </button>
             {showScrollBottom && (
-              <button className="agent-flow__scroll-bottom" onClick={scrollToBottom} title="Scroll to bottom" type="button">
+              <button className="agent-flow__scroll-bottom" onClick={scrollToBottom} title={t('scroll.scrollToBottom')} type="button" aria-label={t('scroll.scrollToBottom')}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 5v14M19 12l-7 7-7-7" />
                 </svg>
@@ -1049,16 +1459,17 @@ export function AgentFlow({
 
       {/* Event Detail Modal */}
       {selectedEvent && (
-        <div className="agent-flow__modal-overlay" onClick={() => setSelectedEvent(null)}>
+        <div className="agent-flow__modal-overlay" onClick={() => setSelectedEvent(null)} role="dialog" aria-modal="true" aria-label="Event detail">
           <div className="agent-flow__modal" onClick={(e) => e.stopPropagation()}>
             <div className="agent-flow__modal-header">
-              <span className="agent-flow__modal-title">Event Detail</span>
+              <span className="agent-flow__modal-title">{t('modal.eventDetail')}</span>
               <div className="agent-flow__modal-actions">
                 <button
                   className="agent-flow__modal-copy"
                   onClick={() => copyToClipboard(JSON.stringify(selectedEvent, null, 2))}
-                  title="Copy JSON"
+                  title={t('modal.copyJSON')}
                   type="button"
+                  aria-label={t('action.copyJSON')}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
@@ -1068,8 +1479,9 @@ export function AgentFlow({
                 <button
                   className="agent-flow__modal-close"
                   onClick={() => setSelectedEvent(null)}
-                  title="Close"
+                  title={t('modal.close')}
                   type="button"
+                  aria-label={t('modal.close')}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -1087,15 +1499,16 @@ export function AgentFlow({
 
       {/* Keyboard Shortcuts Help Overlay */}
       {showHelp && (
-        <div className="agent-flow__modal-overlay" onClick={() => setShowHelp(false)}>
+        <div className="agent-flow__modal-overlay" onClick={() => setShowHelp(false)} role="dialog" aria-modal="true" aria-label={t('help.title')}>
           <div className="agent-flow__help-modal" onClick={(e) => e.stopPropagation()}>
             <div className="agent-flow__modal-header">
-              <span className="agent-flow__modal-title">Keyboard Shortcuts</span>
+              <span className="agent-flow__modal-title">{t('help.title')}</span>
               <button
                 className="agent-flow__modal-close"
                 onClick={() => setShowHelp(false)}
-                title="Close"
+                title={t('modal.close')}
                 type="button"
+                aria-label={t('modal.close')}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -1108,24 +1521,115 @@ export function AgentFlow({
                 <span className="agent-flow__help-keys">
                   <kbd>Ctrl</kbd><span>+</span><kbd>K</kbd>
                 </span>
-                <span className="agent-flow__help-desc">Search events</span>
+                <span className="agent-flow__help-desc">{t('help.searchEvents')}</span>
               </div>
               <div className="agent-flow__help-row">
                 <span className="agent-flow__help-keys">
                   <kbd>?</kbd>
                 </span>
-                <span className="agent-flow__help-desc">Toggle this help panel</span>
+                <span className="agent-flow__help-desc">{t('help.toggleHelp')}</span>
               </div>
               <div className="agent-flow__help-row">
                 <span className="agent-flow__help-keys">
                   <kbd>Esc</kbd>
                 </span>
-                <span className="agent-flow__help-desc">Close panels</span>
+                <span className="agent-flow__help-desc">{t('help.closePanels')}</span>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          className={`agent-flow__context-menu agent-flow__context-menu--${theme}`}
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          role="menu"
+        >
+          <button
+            className="agent-flow__context-menu-item"
+            onClick={() => {
+              copyToClipboard(JSON.stringify(contextMenu.event, null, 2));
+              setContextMenu(null);
+            }}
+            role="menuitem"
+            type="button"
+          >
+            {t('action.copyJSON')}
+          </button>
+          {contextMenu.event.type === 'tool_call' && (
+            <button
+              className="agent-flow__context-menu-item"
+              onClick={() => {
+                copyToClipboard(generateCurlCommand(contextMenu.event));
+                setContextMenu(null);
+              }}
+              role="menuitem"
+              type="button"
+            >
+              {t('action.copyCurl')}
+            </button>
+          )}
+          <button
+            className="agent-flow__context-menu-item"
+            onClick={() => {
+              toggleBookmark(contextMenu.event.id);
+              setContextMenu(null);
+            }}
+            role="menuitem"
+            type="button"
+          >
+            {bookmarkedIds.has(contextMenu.event.id) ? t('action.unbookmark') : t('action.bookmark')}
+          </button>
+          {contextMenu.event.agentName && (
+            <button
+              className="agent-flow__context-menu-item"
+              onClick={() => {
+                setSelectedAgent(contextMenu.event.agentName || null);
+                setContextMenu(null);
+              }}
+              role="menuitem"
+              type="button"
+            >
+              {t('action.filterByAgent')}: {contextMenu.event.agentName}
+            </button>
+          )}
+          <button
+            className="agent-flow__context-menu-item"
+            onClick={() => {
+              setEnabledTypes(new Set([contextMenu.event.type]));
+              setContextMenu(null);
+            }}
+            role="menuitem"
+            type="button"
+          >
+            {t('action.filterByType')}: {contextMenu.event.type}
+          </button>
+          <div className="agent-flow__context-menu-separator" />
+          <button
+            className="agent-flow__context-menu-item"
+            onClick={() => {
+              setSelectedEvent(contextMenu.event);
+              setContextMenu(null);
+            }}
+            role="menuitem"
+            type="button"
+          >
+            {t('action.showDetails')}
+          </button>
+        </div>
+      )}
+
+      {/* Resize handle */}
+      <div
+        className="agent-flow__resize-handle"
+        onMouseDown={handleResizeStart}
+        role="separator"
+        aria-orientation="horizontal"
+        title="Drag to resize"
+      />
     </div>
   );
 }
