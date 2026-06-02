@@ -1,28 +1,56 @@
+/**
+ * WebSocket Transport Adapter
+ *
+ * Provides an alternative to SSE using WebSocket connections.
+ * Implements the same event delivery semantics as useSSE:
+ *   - Connect to a WebSocket endpoint
+ *   - Receive JSON messages and emit FlowEvent objects
+ *   - Auto-reconnect with exponential backoff
+ *   - rAF batching for high-throughput streams
+ */
+
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import type { FlowEvent, SSEStats, ConnectionDetails } from './types';
-import type { ParsedSSEEvent } from './sse-worker';
-import { validateFlowEvent, formatValidationErrors } from './validate';
+import type { FlowEvent, SSEStats, ConnectionDetails } from '../types';
 
-export type { SSEStats } from './types';
+export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
-export interface UseSSEOptions {
+export interface UseWebSocketOptions {
+  /** WebSocket endpoint URL (ws:// or wss://) */
   url: string;
+  /** Auto connect on mount */
   autoConnect: boolean;
+  /** Max events to keep in memory */
   maxEvents: number;
+  /** Error callback */
   onError?: (error: Error) => void;
-  onStatusChange?: (status: 'connecting' | 'connected' | 'disconnected' | 'error') => void;
+  /** Connection status callback */
+  onStatusChange?: (status: ConnectionStatus) => void;
   /** Reconnect automatically on disconnect. Default: true */
   autoReconnect?: boolean;
   /** Max reconnect attempts. Default: 10 */
   maxReconnectAttempts?: number;
+  /** WebSocket protocols (optional) */
+  protocols?: string | string[];
 }
 
-export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
+export interface UseWebSocketReturn {
+  events: FlowEvent[];
+  filteredEvents: FlowEvent[];
+  status: ConnectionStatus;
+  stats: SSEStats;
+  selectedAgent: string | null;
+  setSelectedAgent: (agent: string | null) => void;
+  connect: () => () => void;
+  disconnect: () => void;
+  clearEvents: () => void;
+  isSupported: boolean;
+  connectionDetails: ConnectionDetails;
+}
 
-/** SSR-safe EventSource check (dynamic to allow test mocks) */
-const checkEventSourceSupport = () => typeof EventSource !== 'undefined';
+/** SSR-safe WebSocket check */
+const checkWebSocketSupport = () => typeof WebSocket !== 'undefined';
 
-export function useSSE({
+export function useWebSocket({
   url,
   autoConnect,
   maxEvents,
@@ -30,14 +58,15 @@ export function useSSE({
   onStatusChange,
   autoReconnect = true,
   maxReconnectAttempts = 10,
-}: UseSSEOptions) {
+  protocols,
+}: UseWebSocketOptions): UseWebSocketReturn {
   const [events, setEvents] = useState<FlowEvent[]>([]);
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [lastErrorMessage, setLastErrorMessage] = useState<string | null>(null);
   const [connectedAt, setConnectedAt] = useState<number | null>(null);
 
-  // Incremental stats — avoids O(n) scans on every render
+  // Incremental stats
   const statsRef = useRef({
     totalCost: 0,
     totalTokens: 0,
@@ -51,101 +80,26 @@ export function useSSE({
     [events, selectedAgent],
   );
 
-  // Refs for cleanup and state tracking
+  // Refs
   const pendingRef = useRef<FlowEvent[]>([]);
   const rafRef = useRef<number | null>(null);
   const idCounterRef = useRef(0);
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const isMountedRef = useRef(true);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const manualDisconnectRef = useRef(false);
 
-  // Web Worker for off-main-thread JSON parsing
-  const workerRef = useRef<Worker | null>(null);
-  const workerReadyRef = useRef(false);
-  const flushPendingRef = useRef<() => void>(() => {});
-  const onErrorRef = useRef(onError);
-
-  // Cleanup on unmount + worker init
+  // Cleanup on unmount
   useEffect(() => {
     isMountedRef.current = true;
-
-    // Initialize Web Worker for JSON parsing (if supported)
-    if (typeof Worker !== 'undefined') {
-      try {
-        const worker = new Worker(
-          new URL('./sse-worker.ts', import.meta.url),
-          { type: 'module' },
-        );
-        worker.onmessage = (e: MessageEvent) => {
-          if (!isMountedRef.current) return;
-          const data = e.data;
-          if (data.type === 'parsed') {
-            const parsed: ParsedSSEEvent = data.event;
-            // Validate parsed event against FlowEvent schema
-            const validation = validateFlowEvent(parsed);
-            if (!validation.valid) {
-              console.warn(
-                '[AgentFlow] Malformed event (worker):',
-                formatValidationErrors(validation.errors),
-                '\nRaw data:',
-                parsed,
-              );
-            }
-            const event: FlowEvent = {
-              id: parsed.id,
-              type: parsed.type as FlowEvent['type'],
-              message: parsed.message,
-              tool: parsed.tool,
-              args: parsed.args,
-              argsJson: parsed.argsJson,
-              result: parsed.result,
-              timestamp: parsed.timestamp,
-              agentName: parsed.agentName,
-              agentColor: parsed.agentColor,
-              cost: parsed.cost,
-              tokens: parsed.tokens,
-              duration: parsed.duration,
-            };
-            pendingRef.current.push(event);
-            if (rafRef.current === null) {
-              rafRef.current = requestAnimationFrame(() => {
-                rafRef.current = null;
-                flushPendingRef.current();
-              });
-            }
-          } else if (data.type === 'error') {
-            console.error('[AgentFlow] Worker parse error:', data.error);
-            onErrorRef.current?.(new Error(`Failed to parse SSE event: ${data.error}`));
-          }
-        };
-        worker.onerror = (err) => {
-          console.error('[AgentFlow] Worker error:', err);
-          workerReadyRef.current = false;
-          workerRef.current = null;
-        };
-        workerRef.current = worker;
-        workerReadyRef.current = true;
-      } catch {
-        // Worker not supported (e.g. in SSR or restricted environments)
-        workerReadyRef.current = false;
-      }
-    }
-
     return () => {
       isMountedRef.current = false;
       manualDisconnectRef.current = true;
 
-      if (workerRef.current) {
-        workerRef.current.terminate();
-        workerRef.current = null;
-        workerReadyRef.current = false;
-      }
-
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
       }
 
       if (rafRef.current !== null) {
@@ -167,7 +121,7 @@ export function useSSE({
     onStatusChange?.(newStatus);
   }, [onStatusChange]);
 
-  // Batching: buffer SSE messages and flush once per animation frame
+  // Batching: buffer messages and flush once per animation frame
   const flushPending = useCallback(() => {
     const pending = pendingRef.current;
     if (pending.length === 0) return;
@@ -212,10 +166,6 @@ export function useSSE({
     });
   }, [maxEvents]);
 
-  // Keep worker callback refs in sync
-  flushPendingRef.current = flushPending;
-  onErrorRef.current = onError;
-
   // Schedule reconnect with exponential backoff
   const scheduleReconnect = useCallback(() => {
     if (!autoReconnect || manualDisconnectRef.current) return;
@@ -236,28 +186,15 @@ export function useSSE({
     }, delay);
   }, [autoReconnect, maxReconnectAttempts, handleStatusChange, onError]);
 
-  /** Fallback: parse SSE JSON on the main thread */
-  const parseOnMainThread = useCallback((rawData: string) => {
+  /** Parse incoming WebSocket message into a FlowEvent */
+  const handleMessage = useCallback((rawData: string) => {
     try {
       const raw = JSON.parse(rawData);
-
-      // Validate parsed event against FlowEvent schema
-      const validation = validateFlowEvent(raw);
-      if (!validation.valid) {
-        console.warn(
-          '[AgentFlow] Malformed event:',
-          formatValidationErrors(validation.errors),
-          '\nRaw data:',
-          rawData,
-        );
-      }
-
       let argsJson: string | undefined;
       if (raw.args) {
         try {
           argsJson = JSON.stringify(raw.args, null, 2);
-        } catch (err) {
-          console.error('[AgentFlow] Failed to serialize args:', err);
+        } catch {
           argsJson = '[Unable to serialize]';
         }
       }
@@ -276,32 +213,39 @@ export function useSSE({
         });
       }
     } catch (err) {
-      console.error('[AgentFlow] Failed to parse event:', err);
+      console.error('[AgentFlow:WS] Failed to parse message:', err);
       if (isMountedRef.current) {
-        onError?.(new Error(`Failed to parse SSE event: ${err}`));
+        onError?.(new Error(`Failed to parse WebSocket message: ${err}`));
       }
     }
   }, [flushPending, onError]);
 
   const connect = useCallback(() => {
-    if (!checkEventSourceSupport()) {
+    if (!checkWebSocketSupport()) {
       handleStatusChange('error');
-      onError?.(new Error('EventSource is not supported in this environment'));
+      onError?.(new Error('WebSocket is not supported in this environment'));
       return () => {};
     }
 
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
     }
 
     manualDisconnectRef.current = false;
     handleStatusChange('connecting');
 
-    const eventSource = new EventSource(url);
-    eventSourceRef.current = eventSource;
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(url, protocols);
+    } catch (err) {
+      handleStatusChange('error');
+      onError?.(new Error(`Failed to create WebSocket: ${err}`));
+      return () => {};
+    }
+    wsRef.current = ws;
 
-    eventSource.onopen = () => {
+    ws.onopen = () => {
       if (isMountedRef.current) {
         reconnectAttemptsRef.current = 0;
         setConnectedAt(Date.now());
@@ -310,42 +254,45 @@ export function useSSE({
       }
     };
 
-    eventSource.onmessage = (e) => {
+    ws.onmessage = (e) => {
       if (!isMountedRef.current) return;
 
-      // Use Web Worker for JSON parsing when available
-      if (workerReadyRef.current && workerRef.current) {
-        try {
-          workerRef.current.postMessage({ type: 'parse', raw: e.data });
-        } catch (err) {
-          // Fallback to main-thread parsing if worker postMessage fails
-          parseOnMainThread(e.data);
-        }
-      } else {
-        parseOnMainThread(e.data);
+      // Handle Blob data (some environments deliver Blob instead of string)
+      if (e.data instanceof Blob) {
+        e.data.text().then(handleMessage).catch((err) => {
+          console.error('[AgentFlow:WS] Failed to read Blob:', err);
+        });
+      } else if (typeof e.data === 'string') {
+        handleMessage(e.data);
       }
     };
 
-    eventSource.onerror = () => {
+    ws.onerror = () => {
+      if (!isMountedRef.current) return;
+      handleStatusChange('error');
+      setLastErrorMessage('WebSocket connection error');
+      setConnectedAt(null);
+      onError?.(new Error('WebSocket connection error'));
+    };
+
+    ws.onclose = (event) => {
       if (!isMountedRef.current) return;
 
-      handleStatusChange('error');
-      setLastErrorMessage('SSE connection failed');
-      setConnectedAt(null);
-      const error = new Error('SSE connection failed');
-      onError?.(error);
-      eventSource.close();
-      eventSourceRef.current = null;
-
-      // Auto-reconnect with backoff
-      scheduleReconnect();
+      if (!manualDisconnectRef.current) {
+        handleStatusChange('disconnected');
+        setConnectedAt(null);
+        if (!event.wasClean) {
+          setLastErrorMessage(`WebSocket closed unexpectedly (code: ${event.code})`);
+        }
+        scheduleReconnect();
+      }
     };
 
     return () => {
       manualDisconnectRef.current = true;
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
       }
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
@@ -356,7 +303,7 @@ export function useSSE({
         handleStatusChange('disconnected');
       }
     };
-  }, [url, handleStatusChange, onError, flushPending, scheduleReconnect, parseOnMainThread]);
+  }, [url, protocols, handleStatusChange, onError, flushPending, scheduleReconnect, handleMessage]);
 
   const disconnect = useCallback(() => {
     manualDisconnectRef.current = true;
@@ -364,9 +311,9 @@ export function useSSE({
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
     }
     if (isMountedRef.current) {
       setConnectedAt(null);
@@ -405,8 +352,7 @@ export function useSSE({
     connect,
     disconnect,
     clearEvents,
-    /** Whether EventSource is supported in this environment */
-    isSupported: checkEventSourceSupport(),
+    isSupported: checkWebSocketSupport(),
     connectionDetails,
   };
 }
