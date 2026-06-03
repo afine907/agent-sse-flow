@@ -1,78 +1,99 @@
 # agent-sse-flow
 
-轻量级 React 组件，可视化 AI Agent 执行轨迹的 SSE 流。
+A lightweight React component for visualizing AI Agent execution traces from SSE streams.
 
-## 开发者命令
+## Developer Commands
 
 ```bash
-pnpm dev          # 开发服务器 (port 5173)
-pnpm build        # 构建库 (ES + CJS → dist/)
-pnpm type-check   # TypeScript 验证
-pnpm lint         # ESLint 检查
-pnpm test         # 单元测试 (vitest, 19 tests)
-pnpm perf-test    # 性能测试 (Playwright, 100K events)
-pnpm mock-server  # 启动 Mock SSE 服务器
+pnpm dev              # Dev server + mock SSE (port 5173)
+pnpm build            # Build library (ES + CJS → dist/)
+pnpm type-check       # TypeScript validation
+pnpm lint             # ESLint check
+pnpm test             # Unit tests (vitest, 188 tests)
+pnpm perf-test        # Performance tests (Playwright)
+pnpm dev-storybook    # Storybook
 ```
 
-**注意**: 必须用 `pnpm`，不是 `npm`。项目用 `.npmrc` 强制。
+**Note**: Use `pnpm`, not `npm`. Enforced via `.npmrc`.
 
-## 项目结构
+## Project Structure
 
 ```
 src/
-├── index.ts          # 导出: AgentFlow, AgentFlowProps, FlowEvent
-├── AgentFlow.tsx     # 主组件 (~200 行)，虚拟滚动 + 布局
-├── EventRow.tsx      # EventRow, TimelineRow 组件
-├── useSSE.ts         # SSE 连接，rAF 批处理，增量统计
-├── types.ts          # TypeScript 接口
-├── utils.ts          # formatTime, copyToClipboard, icons
-├── AgentFlow.css     # BEM 样式 (.agent-flow--dark, .agent-flow--light)
-└── main.tsx          # Dev 演示页
+├── index.ts              # Library entry — exports all public API
+├── AgentFlow.tsx         # Main component (~1784 lines) — all UI state + rendering
+├── EventRow.tsx          # EventRow, TimelineRow, WaterfallBar, SyntaxHighlight
+├── useSSE.ts             # SSE hook — rAF batching, auto-reconnect, incremental stats
+├── useVisibleRows.ts     # IntersectionObserver for lazy rendering
+├── types.ts              # TypeScript interfaces
+├── utils.ts              # Utilities (formatTime, export, copy)
+├── AgentFlow.css         # BEM styles, dark/light themes, CSS variables
+├── i18n.ts               # Internationalization (en/zh)
+├── sounds.ts             # Web Audio API feedback
+├── storage.ts            # IndexedDB event persistence
+├── snapshot-store.ts     # IndexedDB snapshot save/load
+├── validate.ts           # Event schema validation
+├── perf-analyze.ts       # Performance bottleneck detection
+├── recording.ts          # JSONL stream recording
+├── event-cluster.ts      # Event clustering
+├── event-diff.ts         # Event diff comparison
+├── ai-analysis.ts        # AI analysis prompt helpers
+├── sse-worker.ts         # Web Worker for JSON parsing
+├── DAGView.tsx           # Agent dependency graph (SVG)
+├── SwimlaneView.tsx      # Multi-agent swimlane view
+├── CostDashboard.tsx     # Cost pie chart
+├── TokenChart.tsx        # Token usage chart (SVG)
+├── adapters/
+│   ├── websocket.ts      # WebSocket transport adapter
+│   └── polling.ts        # HTTP polling transport adapter
+├── main.tsx              # Dev demo page
+├── mock-server/index.mjs # Mock SSE server
+└── stories/              # Storybook stories
 ```
 
-## 关键 API
+## Key API
 
 ```tsx
-// Props
 <AgentFlow
-  url="http://localhost:8080/agent/stream"  // 必填
-  theme="dark"                               // 默认 dark
-  autoConnect={true}                         // 默认 true
-  maxEvents={100000}                        // 默认 100K
+  url="http://localhost:8080/agent/stream"  // required
+  theme="dark"                               // 'dark' | 'light'
+  autoConnect={true}
+  maxEvents={100000}
+  viewMode="list"                            // 'list' | 'timeline'
+  locale="en"                                // 'en' | 'zh'
   onError={fn}
   onStatusChange={fn}
 />
-
-// FlowEvent 字段
-{
-  type: 'start'|'thinking'|'tool_call'|'tool_result'|'message'|'error'|'end',
-  message?: string,
-  tool?: string,
-  args?: object,
-  result?: string,
-  timestamp: number,
-  agentName?: string,      // 多 Agent 系统
-  agentColor?: string,     // Agent 颜色
-  cost?: number,           // API 成本
-  tokens?: number,         // token 数量
-  duration?: number        // 耗时(ms)
-}
 ```
 
-## 测试
+## Data Flow
 
-- 单元测试: `pnpm test` (vitest, 位于 `tests/`)
-- 性能测试: `pnpm perf-test` (Playwright, 100K 节点压测)
-- CI 验证: type-check → build → test
+```
+SSE Endpoint → EventSource → sse-worker.ts (Web Worker JSON.parse)
+  → useSSE hook (rAF batching, incremental stats, auto-reconnect)
+  → AgentFlow.tsx (filtering pipeline, virtual list)
+  → @tanstack/react-virtual → EventRow / DAGView / SwimlaneView
+```
 
-## 规范
+## Testing
 
-- 提交格式: [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`)
-- 注释语言: 英文
-- CSS: BEM 命名 + 主题变体
+- Unit: `pnpm test` (vitest, 188 tests across 8 files)
+- Performance: `pnpm perf-test` (Playwright, 100K events)
+- Visual: `pnpm visual-test` (Playwright screenshots)
+- Benchmarks: `pnpm benchmark`
 
-## 相关文档
+## Conventions
 
-- [README.md](./README.md) - 完整使用文档
-- [CLAUDE.md](./CLAUDE.md) - Claude Code 专用配置
-- [CHANGELOG.md](./CHANGELOG.md) - 版本历史
+- Commits: [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`)
+- Comments: English only
+- CSS: BEM naming + theme variants (`.agent-flow--dark`, `.agent-flow--light`)
+- TypeScript: strict mode
+
+## Documentation
+
+- [README.md](./README.md) — Usage guide
+- [CLAUDE.md](./CLAUDE.md) — Claude Code config
+- [CHANGELOG.md](./CHANGELOG.md) — Version history
+- [docs/api-reference.md](docs/api-reference.md) — Full API docs
+- [docs/architecture.md](docs/architecture.md) — Architecture design
+- [docs/advanced-features.md](docs/advanced-features.md) — Feature guide

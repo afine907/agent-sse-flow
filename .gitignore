@@ -10,7 +10,8 @@ yarn.lock
 # Build output
 dist/
 build/
-docs/
+docs/assets/
+docs/index.html
 *.tgz
 
 # Testing
@@ -42,6 +43,9 @@ yarn-error.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Husky internals
+.husky/_
 
 # Temp
 tmp/
