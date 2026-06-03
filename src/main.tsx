@@ -70,12 +70,12 @@ function Demo() {
             fontWeight: 500,
             fontFamily: "'SF Mono', 'Cascadia Code', monospace",
           }}>
-            v2.2.0
+            v2.3.0
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <a
-            href="https://github.com/user/agent-sse-flow"
+            href="https://github.com/afine907/agent-sse-flow"
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -328,7 +328,7 @@ function Demo() {
               url={sseUrl}
               theme={theme}
               viewMode={viewMode}
-              maxEvents={100_000}
+              maxEvents={eventCount}
             />
           ) : (
             <div className={`agent-flow agent-flow--${theme}`} style={{ height: '100%' }}>

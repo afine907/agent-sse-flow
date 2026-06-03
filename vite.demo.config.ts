@@ -4,7 +4,7 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [react()],
-  root: resolve(__dirname, 'examples/demo'),
+  root: __dirname,
   base: '/agent-sse-flow/',
   build: {
     outDir: resolve(__dirname, 'docs'),

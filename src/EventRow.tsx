@@ -1,4 +1,4 @@
-import { memo, useCallback, forwardRef } from 'react';
+import { memo, useCallback, forwardRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { FlowEvent, EventType } from './types';
 import { formatTime, copyToClipboard, EVENT_DOT_COLORS, getSummary } from './utils';
@@ -14,23 +14,36 @@ const ICON_PATHS: Record<EventType, string> = {
   end: 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z',
 };
 
-/** Reusable copy button */
+/** Reusable copy button with feedback */
 const CopyButton = memo(function CopyButton({ text, title = 'Copy' }: { text: string; title?: string }) {
-  const handleCopy = useCallback(() => {
-    copyToClipboard(text);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    const ok = await copyToClipboard(text);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
   }, [text]);
 
   return (
     <button
       className="agent-flow__copy-btn"
       onClick={handleCopy}
-      title={title}
+      title={copied ? 'Copied!' : title}
       type="button"
+      style={copied ? { color: '#10b981' } : undefined}
     >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-      </svg>
+      {copied ? (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      ) : (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+        </svg>
+      )}
     </button>
   );
 });
